@@ -18,8 +18,11 @@
 // - number of sensors (and range?)
 
 // 1 second. we have 1024 prescaler, 32768 crystal.
-static const uint8_t CNT2_COMPARE = 32;
-static const int SECONDS_WAKE = 60;
+#define SLEEP_COMPARE 32
+#define SECONDS_WAKE 60
+
+#define BAUD 9600
+#define UBRR ((F_CPU)/16/(BAUD)-1)
 
 static int uart_putchar(char c, FILE *stream);
 static FILE mystdout = FDEV_SETUP_STREAM(uart_putchar, NULL,
@@ -36,22 +39,22 @@ static char readbuf[30];
 static uint8_t sec_count;
 
 static void 
-uart_init(unsigned int baud)
+uart_init(unsigned int ubrr)
 {
     // baud rate
-    UBRRH = (unsigned char)(baud >> 8);
-    UBRRL = (unsigned char)baud;
-    UCSRB = (1<<RXEN)|(1<<TXEN);
+    UBRR0H = (unsigned char)(ubrr >> 8);
+    UBRR0L = (unsigned char)ubrr;
+    UCSR0B = (1<<RXEN0)|(1<<TXEN0);
     //8N1
-    UCSRC = (1<<URSEL)|(3<<UCSZ0);
+    UCSR0C = (1<<UMSEL00)|(3<<UCSZ00);
 }
 
 static int 
 uart_putchar(char c, FILE *stream)
 {
     // XXX should sleep in the loop for power.
-    loop_until_bit_is_set(UCSRA, UDRE);
-    UDR = c;
+    loop_until_bit_is_set(UCSR0A, UDRE0);
+    UDR0 = c;
     return 0;
 }
 
@@ -100,9 +103,9 @@ read_handler()
     }
 }
 
-ISR(USART_RXC_vect)
+ISR(USART_RX_vect)
 {
-    char c = UDR;
+    char c = UDR0;
     if (c == '\n')
     {
         readbuf[readpos] = '\0';
@@ -120,7 +123,7 @@ ISR(USART_RXC_vect)
     }
 }
 
-ISR(TIMER2_COMP_vect)
+ISR(TIMER2_COMPA_vect)
 {
     sec_count ++;
     if (sec_count == SECONDS_WAKE)
@@ -134,8 +137,8 @@ static void
 deep_sleep()
 {
     // p119 of manual
-    OCR2 = CNT2_COMPARE;
-    loop_until_bit_is_clear(ASSR, OCR2UB);
+    OCR2A = SLEEP_COMPARE;
+    loop_until_bit_is_clear(ASSR, OCR2AUB);
 
     set_sleep_mode(SLEEP_MODE_PWR_SAVE);
     sleep_mode();
@@ -149,7 +152,7 @@ do_measurement()
 
 int main(void)
 {
-    uart_init(9600);
+    uart_init(UBRR);
 
     fprintf(&mystdout, "hello %d\n", 12);
 
@@ -157,7 +160,8 @@ int main(void)
     // COM21 COM20 Set OC2 on Compare Match (p116)
     // WGM21 Clear counter on compare
     // CS22 CS21 CS20  clk/1024
-    TCCR2 = _BV(COM21) | _BV(COM20) | _BV(WGM21) | _BV(CS22) | _BV(CS21) | _BV(CS20);
+    TCCR2A = _BV(COM2A1) | _BV(COM2A0) | _BV(WGM21);
+    TCCR2B = _BV(CS22) | _BV(CS21) | _BV(CS20);
     // set async mode
     ASSR |= _BV(AS2);
 
