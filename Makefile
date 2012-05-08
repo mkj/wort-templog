@@ -20,7 +20,7 @@
 DEVICE     = atmega328
 CLOCK      = 1000000
 PROGRAMMER = #-c stk500v2 -P avrdoper
-OBJECTS    = main.o
+OBJECTS    = main.o ff.o mmc.o
 FUSES      = -U hfuse:w:0xd9:m -U lfuse:w:0x24:m
 
 # ATMega8 fuse bits used above (fuse bits for other devices are different!):
