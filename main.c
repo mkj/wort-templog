@@ -11,6 +11,8 @@
 #include <avr/sleep.h>
 #include <util/crc16.h>
 
+#include "integer.h"
+
 // configuration params
 // - measurement interval
 // - transmit interval
@@ -131,6 +133,11 @@ ISR(TIMER2_COMPA_vect)
         sec_count = 0;
         need_measurement = 1;
     }
+}
+
+DWORD get_fattime (void)
+{
+    return 0;
 }
 
 static void
