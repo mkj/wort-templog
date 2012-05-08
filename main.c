@@ -21,7 +21,9 @@
 
 // 1 second. we have 1024 prescaler, 32768 crystal.
 #define SLEEP_COMPARE 32
-#define SECONDS_WAKE 60
+#define MEASURE_WAKE 60
+
+#define COMMS_WAKE 3600
 
 #define BAUD 9600
 #define UBRR ((F_CPU)/16/(BAUD)-1)
@@ -33,12 +35,18 @@ static FILE mystdout = FDEV_SETUP_STREAM(uart_putchar, NULL,
 static uint8_t n_measurements;
 static uint8_t measurements[500];
 
+// boolean flags
 static uint8_t need_measurement;
+static uint8_t need_comms;
+static uint8_t comms_done;
 
 static uint8_t readpos;
 static char readbuf[30];
 
 static uint8_t sec_count;
+static uint16_t bt_count;
+
+static void deep_sleep();
 
 static void 
 uart_init(unsigned int ubrr)
@@ -82,6 +90,7 @@ cmd_clear()
 static void
 cmd_btoff()
 {
+	comms_done = 1;
 }
 
 static void
@@ -127,12 +136,19 @@ ISR(USART_RX_vect)
 
 ISR(TIMER2_COMPA_vect)
 {
-    sec_count ++;
-    if (sec_count == SECONDS_WAKE)
+    measure_count ++;
+	comms_count ++;
+    if (measure_count == MEASURE_WAKE)
     {
-        sec_count = 0;
+        measure_count = 0;
         need_measurement = 1;
     }
+
+	if (comms_count == COMMS_WAKE)
+	{
+		comms_count = 0;
+		need_comms = 1;
+	}
 }
 
 DWORD get_fattime (void)
@@ -152,9 +168,40 @@ deep_sleep()
 }
 
 static void
+idle_sleep()
+{
+    set_sleep_mode(SLEEP_MODE_IDLE);
+    sleep_mode();
+}
+
+static void
 do_measurement()
 {
     need_measurement = 0;
+}
+
+static void
+do_comms()
+{
+	need_comms = 0;
+
+	// turn on bluetooth
+	// turn on serial (interrupts)
+	
+	// write sd card here? same 3.3v regulator...
+	
+	comms_done = 0;
+	for (;;)
+	{
+		if (comms_done)
+		{
+			break;
+		}
+		idle_sleep();
+	}
+
+	// turn off bluetooth
+	// turn off serial (interrupts)
 }
 
 int main(void)
@@ -177,7 +224,16 @@ int main(void)
         if (need_measurement)
         {
             do_measurement();
+			continue;
         }
+
+        if (need_comms)
+        {
+            do_comms();
+			continue;
+        }
+
+		deep_sleep();
     }
     return 0;   /* never reached */
 }
