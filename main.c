@@ -43,8 +43,8 @@ static uint8_t comms_done;
 static uint8_t readpos;
 static char readbuf[30];
 
-static uint8_t sec_count;
-static uint16_t bt_count;
+static uint8_t measure_count;
+static uint16_t comms_count;
 
 static void deep_sleep();
 
