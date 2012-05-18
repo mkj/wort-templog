@@ -56,11 +56,16 @@ static char readbuf[30];
 static uint8_t measure_count = 0;
 static uint16_t comms_count = 0;
 
+#define DEBUG(str) printf_P(PSTR(str))
+
 static void deep_sleep();
 
 static void 
 uart_on()
 {
+    // Power reduction register
+    //PRR &= ~_BV(PRUSART0);
+ 
     // baud rate
     UBRR0H = (unsigned char)(UBRR >> 8);
     UBRR0L = (unsigned char)UBRR;
@@ -69,29 +74,6 @@ uart_on()
     UCSR0B = _BV(RXCIE0) | _BV(RXEN0) | _BV(TXEN0);
     //8N1
     UCSR0C = _BV(UCSZ01) | _BV(UCSZ00);
-
-    // Power reduction register
-    //PRR &= ~_BV(PRUSART0);
-}
-
-static void
-uart_test()
-{
-
-    UDR0 = 'n';
-    _delay_ms(50);
-    UDR0 = 'f';
-    _delay_ms(50);
-    while ( !( UCSR0A & (1<<UDRE0)) );
-    UDR0 = 'x';
-    loop_until_bit_is_set(UCSR0A, UDRE0);
-    UDR0 = 'a';
-    loop_until_bit_is_set(UCSR0A, UDRE0);
-    UDR0 = 'b';
-    loop_until_bit_is_set(UCSR0A, UDRE0);
-    UDR0 = 'c';
-    loop_until_bit_is_set(UCSR0A, UDRE0);
-    UDR0 = '\n';
 }
 
 static void 
@@ -101,12 +83,16 @@ uart_off()
     UCSR0B = 0;
 
     // Power reduction register
-    PRR |= _BV(PRUSART0);
+    //PRR |= _BV(PRUSART0);
 }
 
 static int 
 uart_putchar(char c, FILE *stream)
 {
+    if (c == '\n')
+    {
+        uart_putchar('\r', stream);
+    }
     // XXX should sleep in the loop for power.
     loop_until_bit_is_set(UCSR0A, UDRE0);
     UDR0 = c;
@@ -166,6 +152,7 @@ read_handler()
 ISR(USART_RX_vect)
 {
     char c = UDR0;
+    printf_P(PSTR("wake up '%c'\n"), c);
     if (c == '\n')
     {
         readbuf[readpos] = '\0';
@@ -185,6 +172,7 @@ ISR(USART_RX_vect)
 
 ISR(TIMER2_COMPA_vect)
 {
+    DEBUG("wake up\n");
     measure_count ++;
 	comms_count ++;
     if (measure_count == MEASURE_WAKE)
@@ -210,11 +198,15 @@ DWORD get_fattime (void)
 static void
 deep_sleep()
 {
+    DEBUG("deep sleep\n");
     // p119 of manual
     OCR2A = SLEEP_COMPARE;
     loop_until_bit_is_clear(ASSR, OCR2AUB);
 
+    DEBUG("really about to\n");
+
     set_sleep_mode(SLEEP_MODE_PWR_SAVE);
+    DEBUG("done.\n");
     sleep_mode();
 }
 
@@ -228,7 +220,7 @@ idle_sleep()
 static void 
 do_adc_335()
 {
-    PRR &= ~_BV(PRADC);
+    //PRR &= ~_BV(PRADC);
 
     ADMUX = _BV(ADLAR);
 
@@ -275,7 +267,7 @@ do_adc_335()
             n_measurements, temp, internal_temp, f_11);
 
     n_measurements++;
-    PRR |= _BV(PRADC);
+    //PRR |= _BV(PRADC);
 }
 
 static void
@@ -336,46 +328,46 @@ long_delay(int ms)
     }
 }
 
+ISR(BADISR_vect)
+{
+    uart_on();
+    printf_P(PSTR("Bad interrupt\n"));
+}
+
 int main(void)
 {
     DDR_LED |= _BV(PIN_LED);
+    blink();
 
-    blink();
-    long_delay(1000);
-    blink();
-    long_delay(500);
     stdout = &mystdout;
     uart_on();
-    blink();
-    long_delay(200);
-    blink();
-    long_delay(200);
-    uart_test();
-
-    PORT_LED &= ~_BV(PIN_LED);
-    for (int i = 0; i < 10; i++)
-        _delay_ms(100);
-    PORT_LED |= _BV(PIN_LED);
 
     fprintf_P(&mystdout, PSTR("hello %d\n"), 12);
-    //uart_off();
+    uart_off();
 
     // turn off everything except timer2
-    PRR = _BV(PRTWI) | _BV(PRTIM0) | _BV(PRTIM1) | _BV(PRSPI) | _BV(PRUSART0) | _BV(PRADC);
+    //PRR = _BV(PRTWI) | _BV(PRTIM0) | _BV(PRTIM1) | _BV(PRSPI) | _BV(PRUSART0) | _BV(PRADC);
+
+    // for testing
+    uart_on();
+
+    DEBUG("power off\n");
+    sei();
+    DEBUG("sei done\n");
+
 
     // set up counter2. 
     // COM21 COM20 Set OC2 on Compare Match (p116)
     // WGM21 Clear counter on compare
-    // CS22 CS21 CS20  clk/1024
     TCCR2A = _BV(COM2A1) | _BV(COM2A0) | _BV(WGM21);
+    // CS22 CS21 CS20  clk/1024
     TCCR2B = _BV(CS22) | _BV(CS21) | _BV(CS20);
     // set async mode
     ASSR |= _BV(AS2);
+    // interrupt
+    TIMSK2 = _BV(OCIE2A);
 
-    DDR_LED |= _BV(PIN_LED);
-    PORT_LED &= ~_BV(PIN_LED);
-    _delay_ms(100);
-    PORT_LED |= _BV(PIN_LED);
+    DEBUG("async setup\n");
 
 #ifdef TEST_MODE
     for (;;)
