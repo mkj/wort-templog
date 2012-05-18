@@ -14,6 +14,7 @@
 #include <util/crc16.h>
 
 #include "integer.h"
+#include "onewire.h"
 
 // configuration params
 // - measurement interval
@@ -186,8 +187,6 @@ ISR(TIMER2_COMPA_vect)
 		comms_count = 0;
 		need_comms = 1;
 	}
-
-    PORT_LED ^= _BV(PIN_LED);
 }
 
 DWORD get_fattime (void)
@@ -313,7 +312,7 @@ static void
 blink()
 {
     PORT_LED &= ~_BV(PIN_LED);
-    _delay_ms(100);
+    _delay_ms(1);
     PORT_LED |= _BV(PIN_LED);
 }
 
@@ -334,8 +333,26 @@ ISR(BADISR_vect)
     printf_P(PSTR("Bad interrupt\n"));
 }
 
+static void
+set_2mhz()
+{
+    cli();
+    CLKPR = _BV(CLKPCE);
+    // divide by 4
+    CLKPR = _BV(CLKPS1);
+    sei();
+}
+
+static void
+test1wire()
+{
+    ow_reset();
+}
+
 int main(void)
 {
+    set_2mhz();
+
     DDR_LED |= _BV(PIN_LED);
     blink();
 
@@ -376,6 +393,9 @@ int main(void)
     }
 #else
     for(;;){
+
+        test1wire();
+
         /* insert your main loop code here */
         if (need_measurement)
         {
@@ -390,6 +410,7 @@ int main(void)
         }
 
 		deep_sleep();
+        blink();
     }
 #endif
     return 0;   /* never reached */

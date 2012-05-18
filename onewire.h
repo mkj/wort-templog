@@ -16,14 +16,14 @@ extern "C" {
    If not defined make sure to call ow_set_bus() before using 
    a bus. Runtime bus-select increases code size by around 300 
    bytes so use OW_ONE_BUS if possible */
-// #define OW_ONE_BUS
+#define OW_ONE_BUS
 
 #ifdef OW_ONE_BUS
 
-#define OW_PIN  PD6
-#define OW_IN   PIND
-#define OW_OUT  PORTD
-#define OW_DDR  DDRD
+#define OW_PIN  PB1
+#define OW_IN   PINB
+#define OW_OUT  PORTB
+#define OW_DDR  DDRB
 #define OW_CONF_DELAYOFFSET 0
 
 #else 
