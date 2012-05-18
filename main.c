@@ -9,6 +9,7 @@
 #include <avr/io.h>
 #include <avr/interrupt.h>
 #include <avr/sleep.h>
+#include <util/delay.h>
 #include <avr/pgmspace.h>
 #include <util/crc16.h>
 
@@ -27,7 +28,11 @@
 #define COMMS_WAKE 3600
 
 #define BAUD 9600
-#define UBRR ((F_CPU)/16/(BAUD)-1)
+#define UBRR ((F_CPU)/8/(BAUD)-1)
+
+#define PORT_LED PORTC
+#define DDR_LED DDRC
+#define PIN_LED PC4
 
 #define NUM_MEASUREMENTS 300
 
@@ -35,36 +40,58 @@ static int uart_putchar(char c, FILE *stream);
 static FILE mystdout = FDEV_SETUP_STREAM(uart_putchar, NULL,
         _FDEV_SETUP_WRITE);
 
-static uint8_t n_measurements;
+static uint8_t n_measurements = 0;
 // stored as 1/5 degree above 0
 static uint8_t measurements[NUM_MEASUREMENTS];
 static uint8_t internal_measurements[NUM_MEASUREMENTS];
 
 // boolean flags
-static uint8_t need_measurement;
-static uint8_t need_comms;
-static uint8_t comms_done;
+static uint8_t need_measurement = 0;
+static uint8_t need_comms = 0;
+static uint8_t comms_done = 0;
 
-static uint8_t readpos;
+static uint8_t readpos = 0;
 static char readbuf[30];
 
-static uint8_t measure_count;
-static uint16_t comms_count;
+static uint8_t measure_count = 0;
+static uint16_t comms_count = 0;
 
 static void deep_sleep();
 
 static void 
-uart_on(unsigned int ubrr)
+uart_on()
 {
     // baud rate
-    UBRR0H = (unsigned char)(ubrr >> 8);
-    UBRR0L = (unsigned char)ubrr;
+    UBRR0H = (unsigned char)(UBRR >> 8);
+    UBRR0L = (unsigned char)UBRR;
+    // set 2x clock, improves accuracy of UBRR
+    UCSR0A |= _BV(U2X0);
     UCSR0B = _BV(RXCIE0) | _BV(RXEN0) | _BV(TXEN0);
     //8N1
-    UCSR0C = _BV(UMSEL00) | _BV(UCSZ00);
+    UCSR0C = _BV(UCSZ01) | _BV(UCSZ00);
 
     // Power reduction register
-    PRR &= ~_BV(PRUSART0);
+    //PRR &= ~_BV(PRUSART0);
+}
+
+static void
+uart_test()
+{
+
+    UDR0 = 'n';
+    _delay_ms(50);
+    UDR0 = 'f';
+    _delay_ms(50);
+    while ( !( UCSR0A & (1<<UDRE0)) );
+    UDR0 = 'x';
+    loop_until_bit_is_set(UCSR0A, UDRE0);
+    UDR0 = 'a';
+    loop_until_bit_is_set(UCSR0A, UDRE0);
+    UDR0 = 'b';
+    loop_until_bit_is_set(UCSR0A, UDRE0);
+    UDR0 = 'c';
+    loop_until_bit_is_set(UCSR0A, UDRE0);
+    UDR0 = '\n';
 }
 
 static void 
@@ -103,11 +130,15 @@ cmd_fetch()
 static void
 cmd_clear()
 {
+    n_measurements = 0;
+    printf_P(PSTR("Cleared\n"));
 }
 
 static void
 cmd_btoff()
 {
+    printf_P(PSTR("Turning off\n"));
+    _delay_ms(50);
 	comms_done = 1;
 }
 
@@ -167,6 +198,8 @@ ISR(TIMER2_COMPA_vect)
 		comms_count = 0;
 		need_comms = 1;
 	}
+
+    PORT_LED ^= _BV(PIN_LED);
 }
 
 DWORD get_fattime (void)
@@ -259,7 +292,7 @@ do_comms()
 	need_comms = 0;
 
 	// turn on bluetooth
-    uart_on(UBRR);
+    uart_on();
 	
 	// write sd card here? same 3.3v regulator...
 	
@@ -284,12 +317,48 @@ do_comms()
 	// turn off bluetooth
 }
 
+static void
+blink()
+{
+    PORT_LED &= ~_BV(PIN_LED);
+    _delay_ms(100);
+    PORT_LED |= _BV(PIN_LED);
+}
+
+static void
+long_delay(int ms)
+{
+    int iter = ms / 100;
+
+    for (int i = 0; i < iter; i++)
+    {
+        _delay_ms(100);
+    }
+}
+
 int main(void)
 {
+    DDR_LED |= _BV(PIN_LED);
+
+    blink();
+    long_delay(1000);
+    blink();
+    long_delay(500);
     stdout = &mystdout;
-    uart_on(UBRR);
+    uart_on();
+    blink();
+    long_delay(200);
+    blink();
+    long_delay(200);
+    uart_test();
+
+    PORT_LED &= ~_BV(PIN_LED);
+    for (int i = 0; i < 10; i++)
+        _delay_ms(100);
+    PORT_LED |= _BV(PIN_LED);
+
     fprintf_P(&mystdout, PSTR("hello %d\n"), 12);
-    uart_off();
+    //uart_off();
 
     // turn off everything except timer2
     PRR = _BV(PRTWI) | _BV(PRTIM0) | _BV(PRTIM1) | _BV(PRSPI) | _BV(PRUSART0) | _BV(PRADC);
@@ -302,6 +371,11 @@ int main(void)
     TCCR2B = _BV(CS22) | _BV(CS21) | _BV(CS20);
     // set async mode
     ASSR |= _BV(AS2);
+
+    DDR_LED |= _BV(PIN_LED);
+    PORT_LED &= ~_BV(PIN_LED);
+    _delay_ms(100);
+    PORT_LED |= _BV(PIN_LED);
 
 #ifdef TEST_MODE
     for (;;)
