@@ -17,10 +17,12 @@
 #                   default_serial = "avrdoper"
 # FUSES ........ Parameters for avrdude to flash the fuses appropriately.
 
-DEVICE     = atmega168
+DEVICE     = atmega328
+PROGDEVICE     = atmega328p
 CLOCK      = 1000000
 PROGRAMMER = #-c stk500v2 -P avrdoper
-OBJECTS    = main.o ff.o mmc.o onewire.o
+PROGRAMMER = -c stk500 -P ~/dev/stk500 -p $(PROGDEVICE) 
+OBJECTS    = main.o #ff.o mmc.o onewire.o
 LIBS       = -lm
 FUSES      = -U hfuse:w:0xd9:m -U lfuse:w:0x24:m
 
@@ -49,7 +51,7 @@ FUSES      = -U hfuse:w:0xd9:m -U lfuse:w:0x24:m
 
 # Tune the lines below only if you know what you are doing:
 
-AVRDUDE = avrdude $(PROGRAMMER) -p $(DEVICE)
+AVRDUDE = avrdude $(PROGRAMMER) 
 COMPILE = avr-gcc -Wall -Os -DF_CPU=$(CLOCK) -mmcu=$(DEVICE) -g -std=c99 -mcall-prologues
 
 # symbolic targets:
