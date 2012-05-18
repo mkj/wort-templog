@@ -19,12 +19,18 @@
 
 DEVICE     = atmega328
 PROGDEVICE     = atmega328p
-CLOCK      = 1000000
+CLOCK      = 2000000
 PROGRAMMER = #-c stk500v2 -P avrdoper
 PROGRAMMER = -c stk500 -P ~/dev/stk500 -p $(PROGDEVICE) 
-OBJECTS    = main.o #ff.o mmc.o onewire.o
+OBJS_1WIRE = onewire.o ds18x20.o uart_addon.o crc8.o
+OBJS_SD = ff.o mmc.o
+OBJECTS    = main.o
+OBJECTS += $(OBJS_1WIRE)
+#OBJECTS += OBJS_SD
 LIBS       = -lm
-FUSES      = -U hfuse:w:0xd9:m -U lfuse:w:0x24:m
+
+# default but 2mhz
+FUSES      = -U hfuse:w:0xd9:m -U lfuse:w:0x62:m
 
 # ATMega8 fuse bits used above (fuse bits for other devices are different!):
 # Example for 8 MHz internal oscillator
@@ -33,17 +39,17 @@ FUSES      = -U hfuse:w:0xd9:m -U lfuse:w:0x24:m
 #        ^ ^ ^ ^   ^ ^ ^------ BOOTSZ0
 #        | | | |   | +-------- BOOTSZ1
 #        | | | |   +---------- EESAVE (set to 0 to preserve EEPROM over chip erase)
-#        | | | +-------------- CKOPT (clock option, depends on oscillator type)
+#        | | | +-------------- WDTON
 #        | | +---------------- SPIEN (if set to 1, serial programming is disabled)
-#        | +------------------ WDTON (if set to 0, watchdog is always on)
+#        | +------------------ DWEN
 #        +-------------------- RSTDISBL (if set to 0, RESET pin is disabled)
 # Fuse low byte:
-# 0x24 = 0 0 1 0   0 1 0 0
+# 0x62 = 0 1 1 0   0 0 1 0
 #        ^ ^ \ /   \--+--/
 #        | |  |       +------- CKSEL 3..0 (8M internal RC)
 #        | |  +--------------- SUT 1..0 (slowly rising power)
-#        | +------------------ BODEN (if 0, brown-out detector is enabled)
-#        +-------------------- BODLEVEL (if 0: 4V, if 1: 2.7V)
+#        | +------------------ CKOUT
+#        +-------------------- CLKDIV8
 #
 # For computing fuse byte values for other devices and options see
 # the fuse bit calculator at http://www.engbedded.com/fusecalc/
