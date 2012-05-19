@@ -15,6 +15,7 @@
 
 #include "integer.h"
 #include "onewire.h"
+#include "ds18x20.h"
 
 // configuration params
 // - measurement interval
@@ -28,7 +29,7 @@
 
 #define COMMS_WAKE 3600
 
-#define BAUD 9600
+#define BAUD 19200
 #define UBRR ((F_CPU)/8/(BAUD)-1)
 
 #define PORT_LED PORTC
@@ -37,7 +38,7 @@
 
 #define NUM_MEASUREMENTS 300
 
-static int uart_putchar(char c, FILE *stream);
+int uart_putchar(char c, FILE *stream);
 static FILE mystdout = FDEV_SETUP_STREAM(uart_putchar, NULL,
         _FDEV_SETUP_WRITE);
 
@@ -87,16 +88,22 @@ uart_off()
     //PRR |= _BV(PRUSART0);
 }
 
-static int 
+int 
 uart_putchar(char c, FILE *stream)
 {
+    // XXX should sleep in the loop for power.
     if (c == '\n')
     {
-        uart_putchar('\r', stream);
+        loop_until_bit_is_set(UCSR0A, UDRE0);
+        UDR0 = '\r';;
     }
-    // XXX should sleep in the loop for power.
     loop_until_bit_is_set(UCSR0A, UDRE0);
     UDR0 = c;
+    if (c == '\r')
+    {
+        loop_until_bit_is_set(UCSR0A, UDRE0);
+        UDR0 = '\n';;
+    }
     return 0;
 }
 
@@ -153,7 +160,6 @@ read_handler()
 ISR(USART_RX_vect)
 {
     char c = UDR0;
-    printf_P(PSTR("wake up '%c'\n"), c);
     if (c == '\n')
     {
         readbuf[readpos] = '\0';
@@ -173,7 +179,6 @@ ISR(USART_RX_vect)
 
 ISR(TIMER2_COMPA_vect)
 {
-    DEBUG("wake up\n");
     measure_count ++;
 	comms_count ++;
     if (measure_count == MEASURE_WAKE)
@@ -197,15 +202,11 @@ DWORD get_fattime (void)
 static void
 deep_sleep()
 {
-    DEBUG("deep sleep\n");
     // p119 of manual
     OCR2A = SLEEP_COMPARE;
     loop_until_bit_is_clear(ASSR, OCR2AUB);
 
-    DEBUG("really about to\n");
-
     set_sleep_mode(SLEEP_MODE_PWR_SAVE);
-    DEBUG("done.\n");
     sleep_mode();
 }
 
@@ -346,7 +347,12 @@ set_2mhz()
 static void
 test1wire()
 {
-    ow_reset();
+    //ow_reset();
+
+    uint8_t ret = DS18X20_start_meas( DS18X20_POWER_PARASITE, NULL);
+    printf("ret %d\n", ret);
+    _delay_ms(DS18B20_TCONV_12BIT);
+    DS18X20_read_meas_all_verbose();
 }
 
 int main(void)
@@ -368,10 +374,13 @@ int main(void)
     // for testing
     uart_on();
 
-    DEBUG("power off\n");
-    sei();
-    DEBUG("sei done\n");
+    //sei();
 
+    for (;;)
+    {
+        test1wire();
+        long_delay(2000);
+    }
 
     // set up counter2. 
     // COM21 COM20 Set OC2 on Compare Match (p116)
@@ -383,8 +392,6 @@ int main(void)
     ASSR |= _BV(AS2);
     // interrupt
     TIMSK2 = _BV(OCIE2A);
-
-    DEBUG("async setup\n");
 
 #ifdef TEST_MODE
     for (;;)
@@ -411,6 +418,7 @@ int main(void)
 
 		deep_sleep();
         blink();
+        printf(".");
     }
 #endif
     return 0;   /* never reached */
