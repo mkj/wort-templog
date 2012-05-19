@@ -29,7 +29,7 @@
 
 // 1 second. we have 1024 prescaler, 32768 crystal.
 #define SLEEP_COMPARE 32
-#define MEASURE_WAKE 60
+#define MEASURE_WAKE 10
 
 #define VALUE_NOSENSOR -9000
 #define VALUE_BROKEN -8000
@@ -47,12 +47,14 @@
 #define MAX_SENSORS 5
 
 int uart_putchar(char c, FILE *stream);
+static void long_delay(int ms);
+
 static FILE mystdout = FDEV_SETUP_STREAM(uart_putchar, NULL,
         _FDEV_SETUP_WRITE);
 
 static uint16_t n_measurements = 0;
 // stored as decidegrees
-static int16_t measurements[MAX_SENSORS][NUM_MEASUREMENTS];
+static int16_t measurements[NUM_MEASUREMENTS][MAX_SENSORS];
 
 // boolean flags
 static uint8_t need_measurement = 0;
@@ -132,17 +134,17 @@ static void
 cmd_fetch()
 {
     uint16_t crc = 0;
-    uint16_t sens;
+    uint8_t sens;
     eeprom_read(sens, n_sensors);
 
     printf_P(PSTR("%d measurements\n"), n_measurements);
-    for (uint16_t i = 0; i < n_measurements; i++)
+    for (uint16_t n = 0; n < n_measurements; n++)
     {
-        printf_P(PSTR("%3d :"), i);
+        printf_P(PSTR("%3d :"), n);
         for (uint8_t s = 0; s < sens; s++)
         {
-            printf_P(PSTR(" %6d"), measurements[s][i]);
-            crc = _crc_ccitt_update(crc, measurements[s][i]);
+            printf_P(PSTR(" %6d"), measurements[n][s]);
+            crc = _crc_ccitt_update(crc, measurements[n][s]);
         }
         putchar('\n');
     }
@@ -175,8 +177,8 @@ static void
 cmd_sensors()
 {
     uint8_t ret = simple_ds18b20_start_meas(NULL);
-    printf_P(("All sensors, ret %d, waiting...\n"), ret);
-    _delay_ms(DS18B20_TCONV_12BIT);
+    printf_P(PSTR("All sensors, ret %d, waiting...\n"), ret);
+    long_delay(DS18B20_TCONV_12BIT);
     simple_ds18b20_read_all();
 }
 
@@ -260,7 +262,6 @@ static void
 cmd_add_all()
 {
 	uint8_t id[OW_ROMCODE_SIZE];
-	uint8_t sp[DS18X20_SP_SIZE];
     printf_P("Adding all\n");
     ow_reset();
 	for( uint8_t diff = OW_SEARCH_FIRST; diff != OW_LAST_DEVICE; )
@@ -313,6 +314,10 @@ check_first_startup()
         printf_P(PSTR("First boot, looking for sensors...\n"));
         cmd_init();
         cmd_add_all();
+        cli();
+        magic = EXPECT_MAGIC;
+        eeprom_write(magic, magic);
+        sei();
     }
 }
 
@@ -380,10 +385,11 @@ ISR(USART_RX_vect)
 
 ISR(TIMER2_COMPA_vect)
 {
+    TCNT2 = 0;
     measure_count ++;
 	comms_count ++;
     printf("measure_count %d\n", measure_count);
-    if (measure_count == MEASURE_WAKE)
+    if (measure_count >= MEASURE_WAKE)
     {
         measure_count = 0;
         printf("need_measurement = 1\n");
@@ -420,6 +426,8 @@ idle_sleep()
     sleep_mode();
 }
 
+#if 0
+// untested
 static void 
 do_adc_335()
 {
@@ -474,34 +482,37 @@ do_adc_335()
     n_measurements++;
     //PRR |= _BV(PRADC);
 }
+#endif
 
 static void
 do_measurement()
 {
     uint8_t n_sensors;
+    printf("do_measurement\n");
     eeprom_read(n_sensors, n_sensors);
+    printf("do_measurement sensors %d\n", n_sensors);
 
     uint8_t ret = simple_ds18b20_start_meas(NULL);
-    printf_P(("Read all sensors, ret %d, waiting...\n"), ret);
+    printf_P(PSTR("Read all sensors, ret %d, waiting...\n"), ret);
     _delay_ms(DS18B20_TCONV_12BIT);
 
     if (n_measurements == NUM_MEASUREMENTS)
     {
-        printf_P(PSTR("Measurements overflow\n"));
+        printf_P(PSTR("Measurements .overflow\n"));
         n_measurements = 0;
     }
 
-    for (uint8_t n = 0; n < MAX_SENSORS; n++)
+    for (uint8_t s = 0; s < MAX_SENSORS; s++)
     {
         int16_t decicelsius;
-        if (n >= n_sensors)
+        if (s >= n_sensors)
         {
             decicelsius = VALUE_NOSENSOR;
         }
         else
         {
             uint8_t id[8];
-            eeprom_read_to(id, sensor_id[n], 8);
+            eeprom_read_to(id, sensor_id[s], 8);
 
             uint8_t ret = simple_ds18b20_read_decicelsius(id, &decicelsius);
             if (ret != DS18X20_OK)
@@ -509,8 +520,9 @@ do_measurement()
                 decicelsius = VALUE_BROKEN;
             }
         }
-        measurements[n_measurements][n] = decicelsius;
+        measurements[n_measurements][s] = decicelsius;
     }
+    n_measurements++;
     //do_adc_335();
 }
 
@@ -536,6 +548,8 @@ do_comms()
 
         if (need_measurement)
         {
+            need_measurement = 0;
+            printf("measure from do_comms\n");
             do_measurement();
         }
 
@@ -555,7 +569,6 @@ blink()
     PORT_LED |= _BV(PIN_LED);
 }
 
-#if 0
 static void
 long_delay(int ms)
 {
@@ -566,11 +579,10 @@ long_delay(int ms)
         _delay_ms(100);
     }
 }
-#endif
 
 ISR(BADISR_vect)
 {
-    uart_on();
+    //uart_on();
     printf_P(PSTR("Bad interrupt\n"));
 }
 
@@ -611,24 +623,33 @@ int main(void)
     // set up counter2. 
     // COM21 COM20 Set OC2 on Compare Match (p116)
     // WGM21 Clear counter on compare
-    TCCR2A = _BV(COM2A1) | _BV(COM2A0);// | _BV(WGM21);
+    //TCCR2A = _BV(COM2A1) | _BV(COM2A0) | _BV(WGM21);
+    // toggle on match
+    TCCR2A = _BV(COM2A0);
     // CS22 CS21 CS20  clk/1024
     TCCR2B = _BV(CS22) | _BV(CS21) | _BV(CS20);
     // set async mode
     ASSR |= _BV(AS2);
+    TCNT2 = 0;
+    OCR2A = SLEEP_COMPARE;
     // interrupt
     TIMSK2 = _BV(OCIE2A);
 
+#if 0
     for (;;)
     {
         do_comms();
     }
+#endif
 
     for(;;){
         /* insert your main loop code here */
         if (need_measurement)
         {
+            need_measurement = 0;
             do_measurement();
+            // testing
+            cmd_fetch();
 			continue;
         }
 
