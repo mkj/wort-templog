@@ -21,8 +21,8 @@ DEVICE     = atmega328
 PROGDEVICE     = atmega328p
 CLOCK      = 2000000
 PROGRAMMER = #-c stk500v2 -P avrdoper
-PROGRAMMER = -c stk500 -P ~/dev/stk500 -p $(PROGDEVICE) 
-OBJS_1WIRE = onewire.o ds18x20.o uart_addon.o crc8.o
+PROGRAMMER = -c stk500 -P ~/dev/stk500 -p $(PROGDEVICE)  -B 2
+OBJS_1WIRE = onewire.o ds18x20.o uart_addon.o crc8.o uart.o
 OBJS_SD = ff.o mmc.o
 OBJECTS    = main.o
 OBJECTS += $(OBJS_1WIRE)
@@ -58,7 +58,7 @@ FUSES      = -U hfuse:w:0xd9:m -U lfuse:w:0x62:m
 # Tune the lines below only if you know what you are doing:
 
 AVRDUDE = avrdude $(PROGRAMMER) 
-COMPILE = avr-gcc -Wall -Os -DF_CPU=$(CLOCK) -mmcu=$(DEVICE) -g -std=c99 -mcall-prologues
+COMPILE = avr-gcc -Wall -Os -DF_CPU=$(CLOCK) -mmcu=$(DEVICE) -g -std=c99 -mcall-prologues -fdata-sections -ffunction-sections  -Wl,--print-gc-sections -Wl,--gc-sections -Wl,--relax
 
 # symbolic targets:
 all:	main.hex
