@@ -22,7 +22,7 @@ PROGDEVICE     = atmega328p
 CLOCK      = 2000000
 PROGRAMMER = #-c stk500v2 -P avrdoper
 PROGRAMMER = -c stk500 -P ~/dev/stk500 -p $(PROGDEVICE)  -B 2
-SOURCE_1WIRE = onewire.c ds18x20.c uart_addon.c crc8.c uart.c
+SOURCE_1WIRE = onewire.c simple_ds18b20.c crc8.c
 SOURCE_SD = ff.c mmc.c
 SOURCE    = main.c
 SOURCE += $(SOURCE_1WIRE)
@@ -83,7 +83,7 @@ fuse:
 	$(AVRDUDE) $(FUSES)
 
 # Xcode uses the Makefile targets "", "clean" and "install"
-install: flash fuse
+install: flash 
 
 # if you use a bootloader, change the command below appropriately:
 load: all

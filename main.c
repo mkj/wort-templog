@@ -13,9 +13,10 @@
 #include <avr/pgmspace.h>
 #include <util/crc16.h>
 
+// for DWORD of get_fattime()
 #include "integer.h"
-#include "onewire.h"
-#include "ds18x20.h"
+
+#include "simple_ds18b20.h"
 
 // configuration params
 // - measurement interval
@@ -137,6 +138,22 @@ cmd_btoff()
 }
 
 static void
+cmd_measure()
+{
+    printf_P(PSTR("Measuring\n"));
+    need_measurement = 1;
+}
+
+static void
+cmd_sensors()
+{
+    uint8_t ret = simple_ds18b20_start_meas(NULL);
+    printf("All sensors, ret %d, waiting...\n", ret);
+    _delay_ms(DS18B20_TCONV_12BIT);
+    simple_ds18b20_read_all();
+}
+
+static void
 read_handler()
 {
     if (strcmp_P(readbuf, PSTR("fetch")) == 0)
@@ -151,6 +168,14 @@ read_handler()
     {
         cmd_btoff();
     }
+    else if (strcmp_P(readbuf, PSTR("measure")) == 0)
+    {
+        cmd_measure();
+    }
+    else if (strcmp_P(readbuf, PSTR("sensors")) == 0)
+    {
+        cmd_sensors();
+    }
     else
     {
         printf_P(PSTR("Bad command\n"));
@@ -160,7 +185,8 @@ read_handler()
 ISR(USART_RX_vect)
 {
     char c = UDR0;
-    if (c == '\n')
+    uart_putchar(c, NULL);
+    if (c == '\r')
     {
         readbuf[readpos] = '\0';
         read_handler();
@@ -181,9 +207,11 @@ ISR(TIMER2_COMPA_vect)
 {
     measure_count ++;
 	comms_count ++;
+    printf("measure_count %d\n", measure_count);
     if (measure_count == MEASURE_WAKE)
     {
         measure_count = 0;
+        printf("need_measurement = 1\n");
         need_measurement = 1;
     }
 
@@ -273,9 +301,10 @@ do_adc_335()
 static void
 do_measurement()
 {
+    printf("do_measurement\n");
     need_measurement = 0;
 
-    do_adc_335();
+    //do_adc_335();
 }
 
 static void
@@ -288,6 +317,8 @@ do_comms()
 	
 	// write sd card here? same 3.3v regulator...
 	
+    printf("ready> \n");
+
 	comms_done = 0;
 	for (;;)
 	{
@@ -345,14 +376,8 @@ set_2mhz()
 }
 
 static void
-test1wire()
+dump_ds18x20()
 {
-    //ow_reset();
-
-    uint8_t ret = DS18X20_start_meas( DS18X20_POWER_PARASITE, NULL);
-    printf("ret %d\n", ret);
-    _delay_ms(DS18B20_TCONV_12BIT);
-    DS18X20_read_meas_all_verbose();
 }
 
 int main(void)
@@ -374,14 +399,9 @@ int main(void)
     // for testing
     uart_on();
 
-    //sei();
+    sei();
 
-    for (;;)
-    {
-        test1wire();
-        long_delay(2000);
-    }
-
+#if 0
     // set up counter2. 
     // COM21 COM20 Set OC2 on Compare Match (p116)
     // WGM21 Clear counter on compare
@@ -392,17 +412,14 @@ int main(void)
     ASSR |= _BV(AS2);
     // interrupt
     TIMSK2 = _BV(OCIE2A);
+#endif
 
-#ifdef TEST_MODE
     for (;;)
     {
-        do_comms()
+        do_comms();
     }
-#else
+
     for(;;){
-
-        test1wire();
-
         /* insert your main loop code here */
         if (need_measurement)
         {
@@ -420,6 +437,6 @@ int main(void)
         blink();
         printf(".");
     }
-#endif
+
     return 0;   /* never reached */
 }
