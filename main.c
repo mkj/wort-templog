@@ -6,17 +6,20 @@
 
 #include <stdio.h>
 #include <string.h>
+#include <stddef.h>
 #include <avr/io.h>
 #include <avr/interrupt.h>
 #include <avr/sleep.h>
 #include <util/delay.h>
 #include <avr/pgmspace.h>
+#include <avr/eeprom.h>
 #include <util/crc16.h>
 
 // for DWORD of get_fattime()
 #include "integer.h"
 
 #include "simple_ds18b20.h"
+#include "onewire.h"
 
 // configuration params
 // - measurement interval
@@ -28,6 +31,9 @@
 #define SLEEP_COMPARE 32
 #define MEASURE_WAKE 60
 
+#define VALUE_NOSENSOR -9000
+#define VALUE_BROKEN -8000
+
 #define COMMS_WAKE 3600
 
 #define BAUD 19200
@@ -37,16 +43,16 @@
 #define DDR_LED DDRC
 #define PIN_LED PC4
 
-#define NUM_MEASUREMENTS 300
+#define NUM_MEASUREMENTS 100
+#define MAX_SENSORS 5
 
 int uart_putchar(char c, FILE *stream);
 static FILE mystdout = FDEV_SETUP_STREAM(uart_putchar, NULL,
         _FDEV_SETUP_WRITE);
 
-static uint8_t n_measurements = 0;
-// stored as 1/5 degree above 0
-static uint8_t measurements[NUM_MEASUREMENTS];
-static uint8_t internal_measurements[NUM_MEASUREMENTS];
+static uint16_t n_measurements = 0;
+// stored as decidegrees
+static int16_t measurements[MAX_SENSORS][NUM_MEASUREMENTS];
 
 // boolean flags
 static uint8_t need_measurement = 0;
@@ -58,6 +64,20 @@ static char readbuf[30];
 
 static uint8_t measure_count = 0;
 static uint16_t comms_count = 0;
+
+// thanks to http://projectgus.com/2010/07/eeprom-access-with-arduino/
+#define eeprom_read_to(dst_p, eeprom_field, dst_size) eeprom_read_block((dst_p), (void *)offsetof(struct __eeprom_data, eeprom_field), (dst_size))
+#define eeprom_read(dst, eeprom_field) eeprom_read_to((&dst), eeprom_field, sizeof(dst))
+#define eeprom_write_from(src_p, eeprom_field, src_size) eeprom_write_block((src_p), (void *)offsetof(struct __eeprom_data, eeprom_field), (src_size))
+#define eeprom_write(src, eeprom_field) { eeprom_write_from(&src, eeprom_field, sizeof(src)); }
+
+#define EXPECT_MAGIC 0x67c9
+
+struct __attribute__ ((__packed__)) __eeprom_data {
+    uint16_t magic;
+    uint8_t n_sensors;
+    uint8_t sensor_id[MAX_SENSORS][8];
+};
 
 #define DEBUG(str) printf_P(PSTR(str))
 
@@ -112,12 +132,19 @@ static void
 cmd_fetch()
 {
     uint16_t crc = 0;
-    int i;
+    uint16_t sens;
+    eeprom_read(sens, n_sensors);
+
     printf_P(PSTR("%d measurements\n"), n_measurements);
-    for (i = 0; i < n_measurements; i++)
+    for (uint16_t i = 0; i < n_measurements; i++)
     {
-        printf_P(PSTR("%3d : %d\n"), i, measurements[i]);
-        crc = _crc_ccitt_update(crc, measurements[i]);
+        printf_P(PSTR("%3d :"), i);
+        for (uint8_t s = 0; s < sens; s++)
+        {
+            printf_P(PSTR(" %6d"), measurements[s][i]);
+            crc = _crc_ccitt_update(crc, measurements[s][i]);
+        }
+        putchar('\n');
     }
     printf_P(PSTR("CRC : %d\n"), crc);
 }
@@ -148,9 +175,145 @@ static void
 cmd_sensors()
 {
     uint8_t ret = simple_ds18b20_start_meas(NULL);
-    printf("All sensors, ret %d, waiting...\n", ret);
+    printf_P(("All sensors, ret %d, waiting...\n"), ret);
     _delay_ms(DS18B20_TCONV_12BIT);
     simple_ds18b20_read_all();
+}
+
+// 0 on success
+static uint8_t
+get_hex_string(const char *hex, uint8_t *out, uint8_t size)
+{
+    uint8_t upper;
+    uint8_t o;
+    for (uint8_t i = 0, z = 0; o < size; i++)
+    {
+        uint8_t h = hex[i];
+        if (h >= 'A' && h <= 'F')
+        {
+            // lower case
+            h += 0x20;
+        }
+        uint8_t nibble;
+        if (h >= '0' && h <= '9')
+        {
+            nibble = h - '0';
+        }
+        else if (h >= 'a' && h <= 'f')
+        {
+            nibble = 10 + h - 'a';
+        }
+        else if (h == ' ' || h == ':')
+        {
+            continue;
+        }
+        else
+        {
+            printf_P(PSTR("Bad hex 0x%x '%c'\n"), hex[i], hex[i]);
+            return 1;
+        }
+
+        if (z % 2 == 0)
+        {
+            upper = nibble << 4;
+        }
+        else
+        {
+            out[o] = upper | nibble;
+            o++;
+        }
+
+        z++;
+    }
+
+    if (o != size)
+    {
+        printf_P(PSTR("Short hex\n"));
+        return 1;
+    }
+    return 0;
+}
+
+static void
+add_sensor(uint8_t *id)
+{
+    uint8_t n;
+    eeprom_read(n, n_sensors);
+    if (n < MAX_SENSORS)
+    {
+        cli();
+        eeprom_write_from(id, sensor_id[n], 8);
+        n++;
+        eeprom_write(n, n_sensors);
+        sei();
+        printf_P(PSTR("Added sensor %d : "), n);
+        printhex(id, 8);
+        putchar('\n');
+    }
+    else
+    {
+        printf_P(PSTR("Too many sensors\n"));
+    }
+}
+
+static void
+cmd_add_all()
+{
+	uint8_t id[OW_ROMCODE_SIZE];
+	uint8_t sp[DS18X20_SP_SIZE];
+    printf_P("Adding all\n");
+    ow_reset();
+	for( uint8_t diff = OW_SEARCH_FIRST; diff != OW_LAST_DEVICE; )
+	{
+		diff = ow_rom_search( diff, &id[0] );
+		if( diff == OW_PRESENCE_ERR ) {
+			printf_P( PSTR("No Sensor found\r") );
+			return;
+		}
+		
+		if( diff == OW_DATA_ERR ) {
+			printf_P( PSTR("Bus Error\r") );
+			return;
+		}
+        add_sensor(id);
+    }
+}
+
+static void
+cmd_add_sensor(const char* hex_addr)
+{
+    uint8_t id[8];
+    uint8_t ret = get_hex_string(hex_addr, id, 8);
+    if (ret)
+    {
+        return;
+    }
+    add_sensor(id);
+
+}
+
+static void
+cmd_init()
+{
+    printf_P(PSTR("Resetting sensor list\n"));
+    uint8_t zero = 0;
+    cli();
+    eeprom_write(zero, n_sensors);
+    sei();
+    printf_P(PSTR("Done.\n"));
+}
+
+static void
+check_first_startup()
+{
+    uint16_t magic;
+    eeprom_read(magic, magic);
+    if (magic != EXPECT_MAGIC)
+    {
+        printf_P(PSTR("First boot, looking for sensors...\n"));
+        cmd_init();
+        cmd_add_all();
+    }
 }
 
 static void
@@ -175,6 +338,18 @@ read_handler()
     else if (strcmp_P(readbuf, PSTR("sensors")) == 0)
     {
         cmd_sensors();
+    }
+    else if (strncmp_P(readbuf, PSTR("adds "), strlen("adds ")) == 0)
+    {
+        cmd_add_sensor(readbuf + strlen("adds "));
+    }
+    else if (strcmp_P(readbuf, PSTR("addall"))== 0)
+    {
+        cmd_add_all();
+    }
+    else if (strcmp_P(readbuf, PSTR("init")) == 0)
+    {
+        cmd_init();
     }
     else
     {
@@ -275,7 +450,8 @@ do_adc_335()
     // 10mV/degree
     // scale to 1/5 degree units above 0C
     int temp = (res_volts - 2.73) * 500;
-    measurements[n_measurements] = temp;
+    // XXX fixme
+    //measurements[n_measurements] = temp;
     // XXX something if it hits the limit
 
     // measure AVR internal temperature against 1.1 ref.
@@ -289,7 +465,8 @@ do_adc_335()
 
     // 1mV/degree
     int internal_temp = (internal_volts - 2.73) * 5000;
-    internal_measurements[n_measurements] = internal_temp;
+    // XXX fixme
+    //internal_measurements[n_measurements] = internal_temp;
 
     printf_P("measure %d: external %d, internal %d, 1.1 %d\n",
             n_measurements, temp, internal_temp, f_11);
@@ -301,9 +478,39 @@ do_adc_335()
 static void
 do_measurement()
 {
-    printf("do_measurement\n");
-    need_measurement = 0;
+    uint8_t n_sensors;
+    eeprom_read(n_sensors, n_sensors);
 
+    uint8_t ret = simple_ds18b20_start_meas(NULL);
+    printf_P(("Read all sensors, ret %d, waiting...\n"), ret);
+    _delay_ms(DS18B20_TCONV_12BIT);
+
+    if (n_measurements == NUM_MEASUREMENTS)
+    {
+        printf_P(PSTR("Measurements overflow\n"));
+        n_measurements = 0;
+    }
+
+    for (uint8_t n = 0; n < MAX_SENSORS; n++)
+    {
+        int16_t decicelsius;
+        if (n >= n_sensors)
+        {
+            decicelsius = VALUE_NOSENSOR;
+        }
+        else
+        {
+            uint8_t id[8];
+            eeprom_read_to(id, sensor_id[n], 8);
+
+            uint8_t ret = simple_ds18b20_read_decicelsius(id, &decicelsius);
+            if (ret != DS18X20_OK)
+            {
+                decicelsius = VALUE_BROKEN;
+            }
+        }
+        measurements[n_measurements][n] = decicelsius;
+    }
     //do_adc_335();
 }
 
@@ -348,6 +555,7 @@ blink()
     PORT_LED |= _BV(PIN_LED);
 }
 
+#if 0
 static void
 long_delay(int ms)
 {
@@ -358,6 +566,7 @@ long_delay(int ms)
         _delay_ms(100);
     }
 }
+#endif
 
 ISR(BADISR_vect)
 {
@@ -375,11 +584,6 @@ set_2mhz()
     sei();
 }
 
-static void
-dump_ds18x20()
-{
-}
-
 int main(void)
 {
     set_2mhz();
@@ -391,6 +595,9 @@ int main(void)
     uart_on();
 
     fprintf_P(&mystdout, PSTR("hello %d\n"), 12);
+
+    check_first_startup();
+
     uart_off();
 
     // turn off everything except timer2
@@ -401,18 +608,16 @@ int main(void)
 
     sei();
 
-#if 0
     // set up counter2. 
     // COM21 COM20 Set OC2 on Compare Match (p116)
     // WGM21 Clear counter on compare
-    TCCR2A = _BV(COM2A1) | _BV(COM2A0) | _BV(WGM21);
+    TCCR2A = _BV(COM2A1) | _BV(COM2A0);// | _BV(WGM21);
     // CS22 CS21 CS20  clk/1024
     TCCR2B = _BV(CS22) | _BV(CS21) | _BV(CS20);
     // set async mode
     ASSR |= _BV(AS2);
     // interrupt
     TIMSK2 = _BV(OCIE2A);
-#endif
 
     for (;;)
     {
