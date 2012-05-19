@@ -163,7 +163,6 @@ uint8_t
 simple_ds18b20_read_all()
 {
 	uint8_t id[OW_ROMCODE_SIZE];
-	uint8_t sp[DS18X20_SP_SIZE];
 	for( uint8_t diff = OW_SEARCH_FIRST; diff != OW_LAST_DEVICE; )
 	{
 		diff = ow_rom_search( diff, &id[0] );

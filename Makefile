@@ -79,6 +79,10 @@ all:	main.hex
 flash:	all
 	$(AVRDUDE) -U flash:w:main.hex:i
 
+checkprog:	
+	$(AVRDUDE) -v 
+
+
 fuse:
 	$(AVRDUDE) $(FUSES)
 
