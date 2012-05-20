@@ -35,6 +35,7 @@
 #define VALUE_BROKEN -8000
 
 #define COMMS_WAKE 3600
+#define WAKE_SECS 30
 
 #define BAUD 19200
 #define UBRR ((F_CPU)/8/(BAUD)-1)
@@ -66,7 +67,9 @@ static int16_t measurements[NUM_MEASUREMENTS][MAX_SENSORS];
 // boolean flags
 static uint8_t need_measurement = 0;
 static uint8_t need_comms = 0;
-static uint8_t comms_done = 0;
+
+// counts down from WAKE_SECS to 0, goes to deep sleep when hits 0
+static uint8_t comms_timeout = 0;
 
 static uint8_t readpos = 0;
 static char readbuf[30];
@@ -92,12 +95,60 @@ struct __attribute__ ((__packed__)) __eeprom_data {
 
 static void deep_sleep();
 
+// Very first setup
+static void
+setup_chip()
+{
+    // Set clock to 2mhz
+    cli();
+    CLKPR = _BV(CLKPCE);
+    // divide by 4
+    CLKPR = _BV(CLKPS1);
+    sei();
+
+    DDR_LED |= _BV(PIN_LED);
+    DDR_SHDN |= _BV(PIN_SHDN);
+}
+
+static void
+set_aux_power(uint8_t on)
+{
+    if (on)
+    {
+        PORT_SHDN &= ~_BV(PIN_SHDN);
+    }
+    else
+    {
+        PORT_SHDN |= _BV(PIN_SHDN);
+    }
+}
+
+static void
+setup_tick_counter()
+{
+    // set up counter2. 
+    // COM21 COM20 Set OC2 on Compare Match (p116)
+    // WGM21 Clear counter on compare
+    //TCCR2A = _BV(COM2A1) | _BV(COM2A0) | _BV(WGM21);
+    // toggle on match
+    TCCR2A = _BV(COM2A0);
+    // CS22 CS21 CS20  clk/1024
+    TCCR2B = _BV(CS22) | _BV(CS21) | _BV(CS20);
+    // set async mode
+    ASSR |= _BV(AS2);
+    TCNT2 = 0;
+    OCR2A = SLEEP_COMPARE;
+    // interrupt
+    TIMSK2 = _BV(OCIE2A);
+}
+
 static void 
 uart_on()
 {
     // Power reduction register
     //PRR &= ~_BV(PRUSART0);
  
+    // All of this needs to be done each time after turning off the PRR
     // baud rate
     UBRR0H = (unsigned char)(UBRR >> 8);
     UBRR0L = (unsigned char)UBRR;
@@ -183,8 +234,7 @@ cmd_btoff()
 {
     printf_P(PSTR("Turning off\n"));
     _delay_ms(50);
-    PORTD |= _BV(PIN_SHDN);
-	comms_done = 1;
+    comms_timeout = 0;
 }
 
 static void
@@ -203,6 +253,7 @@ cmd_sensors()
     simple_ds18b20_read_all();
 }
 
+#if 0
 // 0 on success
 static uint8_t
 get_hex_string(const char *hex, uint8_t *out, uint8_t size)
@@ -256,6 +307,7 @@ get_hex_string(const char *hex, uint8_t *out, uint8_t size)
     }
     return 0;
 }
+#endif
 
 static void
 add_sensor(uint8_t *id)
@@ -302,19 +354,6 @@ cmd_add_all()
 }
 
 static void
-cmd_add_sensor(const char* hex_addr)
-{
-    uint8_t id[ID_LEN];
-    uint8_t ret = get_hex_string(hex_addr, id, ID_LEN);
-    if (ret)
-    {
-        return;
-    }
-    add_sensor(id);
-
-}
-
-static void
 cmd_init()
 {
     printf_P(PSTR("Resetting sensor list\n"));
@@ -333,6 +372,8 @@ check_first_startup()
     if (magic != EXPECT_MAGIC)
     {
         printf_P(PSTR("First boot, looking for sensors...\n"));
+        // in case of power fumbles don't want to reset during eeprom write,
+        long_delay(2);
         cmd_init();
         cmd_add_all();
         cli();
@@ -340,13 +381,6 @@ check_first_startup()
         eeprom_write(magic, magic);
         sei();
     }
-}
-
-static void
-cmd_toggle()
-{
-    PORT_SHDN ^= _BV(PIN_SHDN);
-    printf_P(PSTR("toggling power 3.3v %d\n"), PORT_SHDN & _BV(PIN_SHDN));
 }
 
 static void
@@ -371,14 +405,6 @@ read_handler()
     else if (strcmp_P(readbuf, PSTR("sensors")) == 0)
     {
         cmd_sensors();
-    }
-    else if (strcmp_P(readbuf, PSTR("toggle")) == 0)
-    {
-        cmd_toggle();
-    }
-    else if (strncmp_P(readbuf, PSTR("adds "), strlen("adds ")) == 0)
-    {
-        cmd_add_sensor(readbuf + strlen("adds "));
     }
     else if (strcmp_P(readbuf, PSTR("addall"))== 0)
     {
@@ -420,19 +446,24 @@ ISR(TIMER2_COMPA_vect)
     TCNT2 = 0;
     measure_count ++;
 	comms_count ++;
-    printf("measure_count %d\n", measure_count);
+
+    if (comms_timeout != 0)
+    {
+        comms_timeout--;
+    }
+
     if (measure_count >= MEASURE_WAKE)
     {
         measure_count = 0;
-        printf("need_measurement = 1\n");
         need_measurement = 1;
     }
 
-	if (comms_count == COMMS_WAKE)
+	if (comms_count >= COMMS_WAKE)
 	{
 		comms_count = 0;
 		need_comms = 1;
 	}
+
 }
 
 DWORD get_fattime (void)
@@ -561,8 +592,6 @@ do_measurement()
 static void
 do_comms()
 {
-	need_comms = 0;
-
 	// turn on bluetooth
     uart_on();
 	
@@ -570,14 +599,8 @@ do_comms()
 	
     printf("ready> \n");
 
-	comms_done = 0;
-	for (;;)
+	for (comms_timeout = WAKE_SECS; comms_timeout > 0;  )
 	{
-		if (comms_done)
-		{
-			break;
-		}
-
         if (need_measurement)
         {
             need_measurement = 0;
@@ -585,12 +608,12 @@ do_comms()
             do_measurement();
         }
 
+        // wait for commands from the master
 		idle_sleep();
 	}
 
     uart_off();
-
-	// turn off bluetooth
+    set_aux_power(0);
 }
 
 static void
@@ -618,28 +641,18 @@ ISR(BADISR_vect)
     printf_P(PSTR("Bad interrupt\n"));
 }
 
-static void
-set_2mhz()
-{
-    cli();
-    CLKPR = _BV(CLKPCE);
-    // divide by 4
-    CLKPR = _BV(CLKPS1);
-    sei();
-}
 
 int main(void)
 {
-    set_2mhz();
-
-    DDR_LED |= _BV(PIN_LED);
-    DDR_SHDN |= _BV(PIN_SHDN);
+    setup_chip();
     blink();
+
+    set_aux_power(0);
 
     stdout = &mystdout;
     uart_on();
 
-    fprintf_P(&mystdout, PSTR("hello %d\n"), 12);
+    printf(PSTR("Started.\n"));
 
     check_first_startup();
 
@@ -651,41 +664,29 @@ int main(void)
     // for testing
     uart_on();
 
+    setup_tick_counter();
+
     sei();
 
-    // set up counter2. 
-    // COM21 COM20 Set OC2 on Compare Match (p116)
-    // WGM21 Clear counter on compare
-    //TCCR2A = _BV(COM2A1) | _BV(COM2A0) | _BV(WGM21);
-    // toggle on match
-    TCCR2A = _BV(COM2A0);
-    // CS22 CS21 CS20  clk/1024
-    TCCR2B = _BV(CS22) | _BV(CS21) | _BV(CS20);
-    // set async mode
-    ASSR |= _BV(AS2);
-    TCNT2 = 0;
-    OCR2A = SLEEP_COMPARE;
-    // interrupt
-    TIMSK2 = _BV(OCIE2A);
-
+#if 0
     for (;;)
     {
         do_comms();
     }
+#endif
 
-    for(;;){
-        /* insert your main loop code here */
+    for(;;)
+    {
         if (need_measurement)
         {
             need_measurement = 0;
             do_measurement();
-            // testing
-            cmd_fetch();
 			continue;
         }
 
         if (need_comms)
         {
+            need_comms = 0;
             do_comms();
 			continue;
         }
