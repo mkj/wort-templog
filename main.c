@@ -43,8 +43,15 @@
 #define DDR_LED DDRC
 #define PIN_LED PC4
 
+#define PORT_SHDN PORTD
+#define DDR_SHDN DDRD
+#define PIN_SHDN PD7
+
 #define NUM_MEASUREMENTS 100
 #define MAX_SENSORS 5
+
+// fixed at 8, have a shorter name
+#define ID_LEN OW_ROMCODE_SIZE
 
 int uart_putchar(char c, FILE *stream);
 static void long_delay(int ms);
@@ -78,7 +85,7 @@ static uint16_t comms_count = 0;
 struct __attribute__ ((__packed__)) __eeprom_data {
     uint16_t magic;
     uint8_t n_sensors;
-    uint8_t sensor_id[MAX_SENSORS][8];
+    uint8_t sensor_id[MAX_SENSORS][ID_LEN];
 };
 
 #define DEBUG(str) printf_P(PSTR(str))
@@ -134,14 +141,27 @@ static void
 cmd_fetch()
 {
     uint16_t crc = 0;
-    uint8_t sens;
-    eeprom_read(sens, n_sensors);
+    uint8_t n_sensors;
+    eeprom_read(n_sensors, n_sensors);
 
+    printf_P(PSTR("%d sensors\n"), n_measurements);
+    for (uint8_t s = 0; s < n_sensors; s++)
+    {
+        uint8_t id[ID_LEN];
+        printf_P(PSTR("%d : "), s);
+        eeprom_read_to(id, sensor_id[s], ID_LEN);
+        printhex(id, ID_LEN);
+        putchar('\n');
+        for (uint8_t i = 0; i < ID_LEN; i++)
+        {
+            crc = _crc_ccitt_update(crc, id[i]);
+        }
+    }
     printf_P(PSTR("%d measurements\n"), n_measurements);
     for (uint16_t n = 0; n < n_measurements; n++)
     {
         printf_P(PSTR("%3d :"), n);
-        for (uint8_t s = 0; s < sens; s++)
+        for (uint8_t s = 0; s < n_sensors; s++)
         {
             printf_P(PSTR(" %6d"), measurements[n][s]);
             crc = _crc_ccitt_update(crc, measurements[n][s]);
@@ -163,6 +183,7 @@ cmd_btoff()
 {
     printf_P(PSTR("Turning off\n"));
     _delay_ms(50);
+    PORTD |= _BV(PIN_SHDN);
 	comms_done = 1;
 }
 
@@ -244,12 +265,12 @@ add_sensor(uint8_t *id)
     if (n < MAX_SENSORS)
     {
         cli();
-        eeprom_write_from(id, sensor_id[n], 8);
+        eeprom_write_from(id, sensor_id[n], ID_LEN);
         n++;
         eeprom_write(n, n_sensors);
         sei();
         printf_P(PSTR("Added sensor %d : "), n);
-        printhex(id, 8);
+        printhex(id, ID_LEN);
         putchar('\n');
     }
     else
@@ -283,8 +304,8 @@ cmd_add_all()
 static void
 cmd_add_sensor(const char* hex_addr)
 {
-    uint8_t id[8];
-    uint8_t ret = get_hex_string(hex_addr, id, 8);
+    uint8_t id[ID_LEN];
+    uint8_t ret = get_hex_string(hex_addr, id, ID_LEN);
     if (ret)
     {
         return;
@@ -322,6 +343,13 @@ check_first_startup()
 }
 
 static void
+cmd_toggle()
+{
+    PORT_SHDN ^= _BV(PIN_SHDN);
+    printf_P(PSTR("toggling power 3.3v %d\n"), PORT_SHDN & _BV(PIN_SHDN));
+}
+
+static void
 read_handler()
 {
     if (strcmp_P(readbuf, PSTR("fetch")) == 0)
@@ -343,6 +371,10 @@ read_handler()
     else if (strcmp_P(readbuf, PSTR("sensors")) == 0)
     {
         cmd_sensors();
+    }
+    else if (strcmp_P(readbuf, PSTR("toggle")) == 0)
+    {
+        cmd_toggle();
     }
     else if (strncmp_P(readbuf, PSTR("adds "), strlen("adds ")) == 0)
     {
@@ -511,8 +543,8 @@ do_measurement()
         }
         else
         {
-            uint8_t id[8];
-            eeprom_read_to(id, sensor_id[s], 8);
+            uint8_t id[ID_LEN];
+            eeprom_read_to(id, sensor_id[s], ID_LEN);
 
             uint8_t ret = simple_ds18b20_read_decicelsius(id, &decicelsius);
             if (ret != DS18X20_OK)
@@ -601,6 +633,7 @@ int main(void)
     set_2mhz();
 
     DDR_LED |= _BV(PIN_LED);
+    DDR_SHDN |= _BV(PIN_SHDN);
     blink();
 
     stdout = &mystdout;
@@ -635,12 +668,10 @@ int main(void)
     // interrupt
     TIMSK2 = _BV(OCIE2A);
 
-#if 0
     for (;;)
     {
         do_comms();
     }
-#endif
 
     for(;;){
         /* insert your main loop code here */
