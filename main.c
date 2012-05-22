@@ -60,6 +60,12 @@ static void long_delay(int ms);
 static FILE mystdout = FDEV_SETUP_STREAM(uart_putchar, NULL,
         _FDEV_SETUP_WRITE);
 
+uint16_t crc_out;
+static FILE _crc_stdout = FDEV_SETUP_STREAM(uart_putchar, NULL,
+        _FDEV_SETUP_WRITE);
+// convenience
+static FILE *crc_stdout = &_crc_stdout;
+
 static uint16_t n_measurements;
 // stored as decidegrees
 static int16_t measurements[NUM_MEASUREMENTS][MAX_SENSORS];
@@ -180,62 +186,60 @@ uart_off()
 int 
 uart_putchar(char c, FILE *stream)
 {
-    // XXX should sleep in the loop for power.
+    // XXX could perhaps sleep in the loop for power.
     if (c == '\n')
     {
         loop_until_bit_is_set(UCSR0A, UDRE0);
-        UDR0 = '\r';;
+        UDR0 = '\r';
     }
     loop_until_bit_is_set(UCSR0A, UDRE0);
     UDR0 = c;
+    if (stream == crc_stdout)
+    {
+        crc_out = _crc_ccitt_update(crc_out, '\n');
+    }
     if (c == '\r')
     {
         loop_until_bit_is_set(UCSR0A, UDRE0);
-        UDR0 = '\n';;
+        UDR0 = '\n';
+        if (stream == crc_stdout)
+        {
+            crc_out = _crc_ccitt_update(crc_out, '\n');
+        }
     }
     return 0;
 }
 
 static void
-update_crc(uint16_t *crc, const void *data, uint8_t len)
-{
-    for (uint8_t i = 0; i < len; i++)
-    {
-        *crc = _crc_ccitt_update(*crc, ((const uint8_t*)data)[i]);
-    }
-}
-
-static void
 cmd_fetch()
 {
-    uint16_t crc = 0;
+    crc_out = 0;
     uint8_t n_sensors;
     eeprom_read(n_sensors, n_sensors);
 
-    printf_P(PSTR("Time %lu\n"), clock_epoch);
-    update_crc(&crc, &clock_epoch, sizeof(clock_epoch));
-    printf_P(PSTR("%d sensors\n"), n_measurements);
+    fprintf_P(crc_stdout, PSTR("START\n"));
+    fprintf_P(crc_stdout, PSTR("time=%lu\n"), clock_epoch);
+    fprintf_P(crc_stdout, PSTR("sensors=%d\n"), n_measurements);
     for (uint8_t s = 0; s < n_sensors; s++)
     {
         uint8_t id[ID_LEN];
-        printf_P(PSTR("%d : "), s);
+        fprintf_P(crc_stdout, PSTR("sensor_id%d="), s);
         eeprom_read_to(id, sensor_id[s], ID_LEN);
-        printhex(id, ID_LEN);
-        putchar('\n');
-        update_crc(&crc, id, ID_LEN);
+        printhex(id, ID_LEN, crc_stdout);
+        fputc('\n', crc_stdout);
     }
-    printf_P(PSTR("%d measurements\n"), n_measurements);
+    fprintf_P(crc_stdout, PSTR("measurements=%d\n"), n_measurements);
     for (uint16_t n = 0; n < n_measurements; n++)
     {
-        printf_P(PSTR("%3d :"), n);
+        fprintf_P(crc_stdout, PSTR("meas%3d="), n);
         for (uint8_t s = 0; s < n_sensors; s++)
         {
-            printf_P(PSTR(" %6d"), measurements[n][s]);
-            update_crc(&crc, &measurements[n][s], sizeof(measurements[n][s]));
+            fprintf_P(crc_stdout, PSTR(" %6d"), measurements[n][s]);
         }
-        putchar('\n');
+        fputc('\n', crc_stdout);
     }
-    printf_P(PSTR("CRC : %d\n"), crc);
+    fprintf_P(crc_stdout, PSTR("END\n"));
+    fprintf_P(stdout, PSTR("CRC=%d\n"), crc_out);
 }
 
 static void
@@ -338,7 +342,7 @@ add_sensor(uint8_t *id)
         eeprom_write(n, n_sensors);
         sei();
         printf_P(PSTR("Added sensor %d : "), n);
-        printhex(id, ID_LEN);
+        printhex(id, ID_LEN, stdout);
         putchar('\n');
     }
     else
@@ -448,7 +452,7 @@ read_handler()
     }
 }
 
-ISR(INT0_vwct)
+ISR(INT0_vect)
 {
 	need_comms = 1;
 }
