@@ -108,8 +108,14 @@ setup_chip()
     CLKPR = _BV(CLKPS1);
     sei();
 
+    // 3.3v power for bluetooth and SD
     DDR_LED |= _BV(PIN_LED);
     DDR_SHDN |= _BV(PIN_SHDN);
+
+	// INT0 setup
+	EIMSK = _BV(INT0);
+	// set pullup
+	PORTD |= _BV(PD2);
 }
 
 static void
@@ -441,6 +447,12 @@ read_handler()
         printf_P(PSTR("Bad command\n"));
     }
 }
+
+ISR(INT0_vwct)
+{
+	need_comms = 1;
+}
+
 
 ISR(USART_RX_vect)
 {
