@@ -60,22 +60,24 @@ static void long_delay(int ms);
 static FILE mystdout = FDEV_SETUP_STREAM(uart_putchar, NULL,
         _FDEV_SETUP_WRITE);
 
-static uint16_t n_measurements = 0;
+static uint16_t n_measurements;
 // stored as decidegrees
 static int16_t measurements[NUM_MEASUREMENTS][MAX_SENSORS];
 
 // boolean flags
-static uint8_t need_measurement = 0;
-static uint8_t need_comms = 0;
+static uint8_t need_measurement;
+static uint8_t need_comms;
 
 // counts down from WAKE_SECS to 0, goes to deep sleep when hits 0
-static uint8_t comms_timeout = 0;
+static uint8_t comms_timeout;
 
-static uint8_t readpos = 0;
+static uint8_t readpos;
 static char readbuf[30];
 
-static uint8_t measure_count = 0;
-static uint16_t comms_count = 0;
+static uint8_t measure_count;
+static uint16_t comms_count;
+
+static uint32_t clock_epoch;
 
 // thanks to http://projectgus.com/2010/07/eeprom-access-with-arduino/
 #define eeprom_read_to(dst_p, eeprom_field, dst_size) eeprom_read_block((dst_p), (void *)offsetof(struct __eeprom_data, eeprom_field), (dst_size))
@@ -189,12 +191,23 @@ uart_putchar(char c, FILE *stream)
 }
 
 static void
+update_crc(uint16_t *crc, const void *data, uint8_t len)
+{
+    for (uint8_t i = 0; i < len; i++)
+    {
+        *crc = _crc_ccitt_update(*crc, ((const uint8_t*)data)[i]);
+    }
+}
+
+static void
 cmd_fetch()
 {
     uint16_t crc = 0;
     uint8_t n_sensors;
     eeprom_read(n_sensors, n_sensors);
 
+    printf_P(PSTR("Time %lu\n"), clock_epoch);
+    update_crc(&crc, &clock_epoch, sizeof(clock_epoch));
     printf_P(PSTR("%d sensors\n"), n_measurements);
     for (uint8_t s = 0; s < n_sensors; s++)
     {
@@ -203,10 +216,7 @@ cmd_fetch()
         eeprom_read_to(id, sensor_id[s], ID_LEN);
         printhex(id, ID_LEN);
         putchar('\n');
-        for (uint8_t i = 0; i < ID_LEN; i++)
-        {
-            crc = _crc_ccitt_update(crc, id[i]);
-        }
+        update_crc(&crc, id, ID_LEN);
     }
     printf_P(PSTR("%d measurements\n"), n_measurements);
     for (uint16_t n = 0; n < n_measurements; n++)
@@ -215,7 +225,7 @@ cmd_fetch()
         for (uint8_t s = 0; s < n_sensors; s++)
         {
             printf_P(PSTR(" %6d"), measurements[n][s]);
-            crc = _crc_ccitt_update(crc, measurements[n][s]);
+            update_crc(&crc, &measurements[n][s], sizeof(measurements[n][s]));
         }
         putchar('\n');
     }
@@ -365,6 +375,13 @@ cmd_init()
 }
 
 static void
+cmd_settime(const char *str)
+{
+    clock_epoch = strtoul(str, NULL, 10);
+    printf_P(PSTR("Time set to %lu\n"), clock_epoch);
+}
+
+static void
 check_first_startup()
 {
     uint16_t magic;
@@ -410,6 +427,11 @@ read_handler()
     {
         cmd_add_all();
     }
+    else if (strncmp_P(readbuf, PSTR("settime "), 
+                strlen("settime ") == 0))
+    {
+        cmd_settime(&readbuf[strlen("settime ")]);
+    }
     else if (strcmp_P(readbuf, PSTR("init")) == 0)
     {
         cmd_init();
@@ -446,6 +468,8 @@ ISR(TIMER2_COMPA_vect)
     TCNT2 = 0;
     measure_count ++;
 	comms_count ++;
+
+    clock_epoch ++;
 
     if (comms_timeout != 0)
     {
