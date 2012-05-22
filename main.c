@@ -92,6 +92,16 @@ struct __attribute__ ((__packed__)) __eeprom_data {
 
 static void deep_sleep();
 
+static void
+chip_setup()
+{
+	// INT0 setup
+	EIMSK = _BV(INT0);
+	// set pullup
+	PORTD |= _BV(PD2);
+}
+
+
 static void 
 uart_on()
 {
@@ -393,6 +403,12 @@ read_handler()
         printf_P(PSTR("Bad command\n"));
     }
 }
+
+ISR(INT0_vwct)
+{
+	need_comms = 1;
+}
+
 
 ISR(USART_RX_vect)
 {
