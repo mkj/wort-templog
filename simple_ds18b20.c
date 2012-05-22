@@ -126,7 +126,7 @@ simple_ds18b20_read_decicelsius( uint8_t id[], int16_t *decicelsius )
 }
 
 static void 
-printhex_nibble(const unsigned char b)
+printhex_nibble(const unsigned char b, FILE *stream)
 {
 	unsigned char  c = b & 0x0f;
 	if ( c > 9 ) { 
@@ -135,26 +135,26 @@ printhex_nibble(const unsigned char b)
 	else {
 		c += '0';
 	}
-	putchar(c);
+	fputc(c, stream);
 }
 
 void 
-printhex_byte( const unsigned char  b )
+printhex_byte(const unsigned char b, FILE *stream)
 {
-	printhex_nibble( b >> 4 );
-	printhex_nibble( b );
+	printhex_nibble( b >> 4, stream);
+	printhex_nibble( b, stream);
 }
 
 void
-printhex(uint8_t *id, uint8_t n)
+printhex(uint8_t *id, uint8_t n, FILE *stream)
 {
 	for (uint8_t i = 0; i < n; i++)
 	{
 		if (i > 0)
 		{
-			putchar(' ');
+			fputc(' ', stream);
 		}
-		printhex_byte(id[i]);
+		printhex_byte(id[i], stream);
 	}
 }
 
@@ -190,7 +190,7 @@ simple_ds18b20_read_all()
 		{
 			printf_P(PSTR("CRC fail"));
 		}
-		printhex(id, OW_ROMCODE_SIZE);
+		printhex(id, OW_ROMCODE_SIZE, stdout);
 		printf_P(PSTR(" %d.%d ºC\n"), decicelsius/10, decicelsius % 10);
 	}
 	printf_P(PSTR("Done sensors\n"));
