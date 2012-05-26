@@ -34,6 +34,7 @@
 #define VALUE_NOSENSOR -9000
 #define VALUE_BROKEN -8000
 
+// limited to uint16_t for now
 #define COMMS_WAKE 3600
 #define WAKE_SECS 30
 
@@ -69,6 +70,10 @@ static FILE *crc_stdout = &_crc_stdout;
 static uint16_t n_measurements;
 // stored as decidegrees
 static int16_t measurements[NUM_MEASUREMENTS][MAX_SENSORS];
+static uint32_t first_measurement_clock;
+// last_measurement_clock is redundant but checks that we're not missing
+// samples
+static uint32_t last_measurement_clock;
 
 // boolean flags
 static uint8_t need_measurement;
@@ -218,7 +223,9 @@ cmd_fetch()
     eeprom_read(n_sensors, n_sensors);
 
     fprintf_P(crc_stdout, PSTR("START\n"));
-    fprintf_P(crc_stdout, PSTR("time=%lu\n"), clock_epoch);
+    fprintf_P(crc_stdout, PSTR("now=%lu\n"), clock_epoch);
+    fprintf_P(crc_stdout, PSTR("first_time=%lu\n"), first_measurement_clock);
+    fprintf_P(crc_stdout, PSTR("last_time=%lu\n"), last_measurement_clock);
     fprintf_P(crc_stdout, PSTR("sensors=%d\n"), n_measurements);
     for (uint8_t s = 0; s < n_sensors; s++)
     {
@@ -252,7 +259,8 @@ cmd_clear()
 static void
 cmd_btoff()
 {
-    printf_P(PSTR("Turning off\n"));
+    uint16_t next_wake = COMMS_WAKE - comms_count;
+    printf_P(PSTR("off:%d\n"), next_wake);
     _delay_ms(50);
     comms_timeout = 0;
 }
@@ -462,11 +470,15 @@ ISR(USART_RX_vect)
 {
     char c = UDR0;
     uart_putchar(c, NULL);
-    if (c == '\r')
+    // XXX move this out of interrupt handler
+    if (c == '\r' || c == '\n')
     {
-        readbuf[readpos] = '\0';
-        read_handler();
-        readpos = 0;
+        if (readpos > 0)
+        {
+            readbuf[readpos] = '\0';
+            read_handler();
+            readpos = 0;
+        }
     }
     else
     {
@@ -625,6 +637,13 @@ do_measurement()
         }
         measurements[n_measurements][s] = decicelsius;
     }
+
+    if (n_measurements == 0)
+    {
+        first_measurement_clock = clock_epoch;
+    }
+    last_measurement_clock = clock_epoch;
+
     n_measurements++;
     //do_adc_335();
 }
