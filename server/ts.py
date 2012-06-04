@@ -2,13 +2,18 @@
 
 BTADDR = "00:12:03:27:70:88"
 SLEEP_TIME = 180
+# time that the bluetooth takes to get going?
+EXTRA_WAKEUP = 0
+
+# avoid turning off the bluetooth etc.
+TESTING = True
 
 import sys
 import httplib
 import time
 import traceback
 
-from utils import monotonic_time, retry
+from utils import monotonic_time, retry, readline
 
 lightblue = None
 try:
@@ -19,7 +24,7 @@ except ImportError:
 def get_socket(addr):
     if lightblue:
         s = lightblue.socket()
-        s.connect(addr, 1)
+        s.connect((addr, 1))
     else:
         s = bluetooth.BluetoothSocket( bluetooth.RFCOMM )
         s.connect((addr, 1))
@@ -93,6 +98,8 @@ def fetch(sock):
 
 @retry()
 def turn_off(sock):
+    if TESTING:
+        return None
     sock.send("btoff\n");
     # read newline
     l = readline(sock)
@@ -105,7 +112,6 @@ def turn_off(sock):
         print>>sys.stderr, "Bad response to btoff '%s'\n" % l
 
     return int(next_wake)
-
 
 def do_comms(sock):
     d = None
@@ -131,7 +137,7 @@ def do_comms(sock):
 testcount = 0
 
 def sleep_for(secs):
-    until = monotonic_time + secs
+    until = monotonic_time() + secs
     while True:
         length = until < monotonic_time()
         if length <= 0:
@@ -141,7 +147,12 @@ def sleep_for(secs):
 def main():
 
     while True:
-        sock = get_socket()
+        sock = None
+        try:
+            sock = get_socket(BTADDR)
+        except Exception, e:
+            print>>sys.stderr, "Error connecting:"
+            traceback.print_exc(file=sys.stderr)
         sleep_time = SLEEP_TIME
         if sock:
             next_wake = None
@@ -149,10 +160,12 @@ def main():
                 next_wake = do_comms(sock)
             except Exception, e:
                 print>>sys.stderr, "Error in do_comms:"
-                traceback.print_last(file=sys.stderr)
+                traceback.print_exc(file=sys.stderr)
             if next_wake:
-                sleep_time = min(next_wake, sleep_time)
+                sleep_time = min(next_wake+EXTRA_WAKEUP, sleep_time)
 
+        if TESTING:
+            print "Sleeping for %d" % sleep_time
         sleep_for(sleep_time)
 
 if __name__ == '__main__':
