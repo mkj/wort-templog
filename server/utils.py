@@ -5,6 +5,7 @@ import time
 import select
 
 DEFAULT_TRIES = 3
+READLINE_SELECT_TIMEOUT = 20
 
 __all__ = ('monotonic_time', 'retry')
 
@@ -43,11 +44,8 @@ def monotonic_time():
 # Must be used as "@retry()" if arguments are defaulted
 def retry(retries=DEFAULT_TRIES, try_time = 1):
     def inner(func):
-        print "inner"
         def new_f(*args, **kwargs):
-            print "newf"
             for i in range(retries):
-                print "retry %d" % i
                 d = func(*args, **kwargs)
                 if d:
                     return d
