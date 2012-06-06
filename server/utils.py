@@ -1,6 +1,6 @@
 import os
 import sys
-import ctypes
+#import ctypes
 import time
 import select
 
@@ -16,7 +16,7 @@ READLINE_SELECT_TIMEOUT = 20
 __all__ = ('monotonic_time', 'retry')
 
 clock_gettime = None
-no_clock_gettime = False
+no_clock_gettime = True
 def monotonic_time():
     global clock_gettime
     global no_clock_gettime
@@ -77,7 +77,7 @@ def readline(sock):
         if c == '\r':
             continue
 
-        buf.append(c)
+        buf += c
         if c == '\n':
             return buf
 

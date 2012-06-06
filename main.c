@@ -36,7 +36,7 @@
 
 // limited to uint16_t for now
 #define COMMS_WAKE 3600
-#define WAKE_SECS 30
+#define WAKE_SECS 250 // XXX testing
 
 #define BAUD 19200
 #define UBRR ((F_CPU)/8/(BAUD)-1)
@@ -249,7 +249,7 @@ cmd_fetch()
         fputc('\n', crc_stdout);
     }
     fprintf_P(crc_stdout, PSTR("END\n"));
-    fprintf_P(stdout, PSTR("CRC=%d\n"), crc_out);
+    fprintf_P(stdout, PSTR("CRC=%hu\n"), crc_out);
 }
 
 static void
@@ -744,6 +744,8 @@ int main(void)
     setup_tick_counter();
 
     sei();
+
+    need_comms = 1;
 
 #if 0
     for (;;)
