@@ -57,6 +57,7 @@
 
 int uart_putchar(char c, FILE *stream);
 static void long_delay(int ms);
+static void blink();
 
 static FILE mystdout = FDEV_SETUP_STREAM(uart_putchar, NULL,
         _FDEV_SETUP_WRITE);
@@ -138,7 +139,7 @@ set_aux_power(uint8_t on)
     }
     else
     {
-        PORT_SHDN |= _BV(PIN_SHDN);
+        //PORT_SHDN |= _BV(PIN_SHDN);
     }
 }
 
@@ -181,11 +182,13 @@ uart_on()
 static void 
 uart_off()
 {
+#if 0
     // Turn of interrupts and disable tx/rx
     UCSR0B = 0;
 
     // Power reduction register
     //PRR |= _BV(PRUSART0);
+#endif
 }
 
 int 
@@ -463,6 +466,20 @@ read_handler()
 ISR(INT0_vect)
 {
 	need_comms = 1;
+    blink();
+    _delay_ms(100);
+    blink();
+    _delay_ms(100);
+    blink();
+    _delay_ms(100);
+    blink();
+    _delay_ms(100);
+    blink();
+    _delay_ms(100);
+    blink();
+    _delay_ms(100);
+    blink();
+    _delay_ms(100);
 }
 
 
@@ -652,6 +669,7 @@ static void
 do_comms()
 {
 	// turn on bluetooth
+    set_aux_power(1);
     uart_on();
 	
 	// write sd card here? same 3.3v regulator...
