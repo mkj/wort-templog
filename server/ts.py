@@ -11,7 +11,7 @@ FETCH_TRIES = 3
 TESTING = True
 
 import sys
-import httplib
+#import httplib
 import time
 import traceback
 
@@ -33,8 +33,6 @@ def get_socket(addr):
         s.connect((addr, 1))
 
     s.setblocking(False)
-
-    time.sleep(30)
 
     return s
 
@@ -87,6 +85,7 @@ def fetch(sock):
     recv_crc = None
     try:
         k, v = l.rstrip('\n').split('=')
+        print k,v
         if k == 'CRC':
             recv_crc = int(v)
         if recv_crc < 0 or recv_crc > 0xffff:
@@ -122,6 +121,7 @@ def turn_off(sock):
     return int(next_wake)
 
 def do_comms(sock):
+    print "do_comms"
     d = None
     # serial could be unreliable, try a few times
     for i in range(FETCH_TRIES):
