@@ -4,6 +4,12 @@ import ctypes
 import time
 import select
 
+lightblue = None
+try:
+    import lightblue
+except ImportError:
+    pass
+
 DEFAULT_TRIES = 3
 READLINE_SELECT_TIMEOUT = 20
 
@@ -57,13 +63,17 @@ def retry(retries=DEFAULT_TRIES, try_time = 1):
 def readline(sock):
     timeout = READLINE_SELECT_TIMEOUT
     buf = ''
-    while true:
-        (rlist, wlist, xlist) = select.select([sock], [], [], timeout)
-        if sock not in rlist:
-            # hit timeout
-            return None
+    while True:
+        if not lightblue:
+            (rlist, wlist, xlist) = select.select([sock], [], [], timeout)
+            if sock not in rlist:
+                # hit timeout
+                return None
 
         c = sock.recv(1)
+        if c == '':
+            # lightblue timeout
+            return None
         if c == '\r':
             continue
 

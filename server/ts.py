@@ -5,6 +5,8 @@ SLEEP_TIME = 180
 # time that the bluetooth takes to get going?
 EXTRA_WAKEUP = 0
 
+FETCH_TRIES = 3
+
 # avoid turning off the bluetooth etc.
 TESTING = True
 
@@ -25,11 +27,14 @@ def get_socket(addr):
     if lightblue:
         s = lightblue.socket()
         s.connect((addr, 1))
+        s.settimeout(3)
     else:
         s = bluetooth.BluetoothSocket( bluetooth.RFCOMM )
         s.connect((addr, 1))
 
-    s.setnonblocking(True)
+    s.setblocking(False)
+
+    time.sleep(30)
 
     return s
 
@@ -53,6 +58,7 @@ def crc16(buff, crc = 0, poly = 0x8408):
 
 @retry()
 def fetch(sock):
+    print "fetch"
     sock.send("fetch\n")
 
     crc = 0
@@ -65,7 +71,7 @@ def fetch(sock):
     crc = crc16(l, crc)
     lines.append(l)
 
-    while true:
+    while True:
         l = readline(sock)
 
         crc = crc16(l, crc)
@@ -74,6 +80,8 @@ def fetch(sock):
             break
 
         lines.append(l)
+
+    print lines
 
     l = readline(sock)
     recv_crc = None
@@ -139,7 +147,7 @@ testcount = 0
 def sleep_for(secs):
     until = monotonic_time() + secs
     while True:
-        length = until < monotonic_time()
+        length = until - monotonic_time()
         if length <= 0:
             return
         time.sleep(length)
