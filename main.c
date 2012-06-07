@@ -204,7 +204,7 @@ uart_putchar(char c, FILE *stream)
     UDR0 = c;
     if (stream == crc_stdout)
     {
-        crc_out = _crc_ccitt_update(crc_out, '\n');
+        crc_out = _crc_ccitt_update(crc_out, c);
     }
     if (c == '\r')
     {

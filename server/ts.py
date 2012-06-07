@@ -15,7 +15,7 @@ import sys
 import time
 import traceback
 
-from utils import monotonic_time, retry, readline
+from utils import monotonic_time, retry, readline, crc16
 
 lightblue = None
 try:
@@ -35,23 +35,6 @@ def get_socket(addr):
     s.setblocking(False)
 
     return s
-
-# from http://blog.stalkr.net/2011/04/pctf-2011-32-thats-no-bluetooth.html
-def crc16(buff, crc = 0, poly = 0x8408):
-    l = len(buff)
-    i = 0
-    while i < l:
-        ch = ord(buff[i])
-        uc = 0
-        while uc < 8:
-            if (crc & 1) ^ (ch & 1):
-                crc = (crc >> 1) ^ poly
-            else:
-                crc >>= 1
-            ch >>= 1
-            uc += 1
-        i += 1
-        return crc
 
 
 @retry()
