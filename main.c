@@ -85,6 +85,7 @@ static uint8_t comms_timeout;
 
 static uint8_t readpos;
 static char readbuf[30];
+static uint8_t have_cmd;
 
 static uint8_t measure_count;
 static uint16_t comms_count;
@@ -226,25 +227,30 @@ cmd_fetch()
     eeprom_read(n_sensors, n_sensors);
 
     fprintf_P(crc_stdout, PSTR("START\n"));
-    fprintf_P(crc_stdout, PSTR("now=%lu\n"), clock_epoch);
-    fprintf_P(crc_stdout, PSTR("first_time=%lu\n"), first_measurement_clock);
-    fprintf_P(crc_stdout, PSTR("last_time=%lu\n"), last_measurement_clock);
-    fprintf_P(crc_stdout, PSTR("sensors=%d\n"), n_measurements);
+    fprintf_P(crc_stdout, PSTR("now=%lu\n"
+                                "time_step=%lu\n"
+                                "first_time=%lu\n"
+                                "last_time=%lu\n"), 
+                                clock_epoch, 
+                                MEASURE_WAKE, 
+                                first_measurement_clock, 
+                                last_measurement_clock);
+    fprintf_P(crc_stdout, PSTR("sensors=%u\n"), n_sensors);
     for (uint8_t s = 0; s < n_sensors; s++)
     {
         uint8_t id[ID_LEN];
-        fprintf_P(crc_stdout, PSTR("sensor_id%d="), s);
+        fprintf_P(crc_stdout, PSTR("sensor_id%u="), s);
         eeprom_read_to(id, sensor_id[s], ID_LEN);
         printhex(id, ID_LEN, crc_stdout);
         fputc('\n', crc_stdout);
     }
-    fprintf_P(crc_stdout, PSTR("measurements=%d\n"), n_measurements);
+    fprintf_P(crc_stdout, PSTR("measurements=%u\n"), n_measurements);
     for (uint16_t n = 0; n < n_measurements; n++)
     {
-        fprintf_P(crc_stdout, PSTR("meas%3d="), n);
+        fprintf_P(crc_stdout, PSTR("meas%u="), n);
         for (uint8_t s = 0; s < n_sensors; s++)
         {
-            fprintf_P(crc_stdout, PSTR(" %6d"), measurements[n][s]);
+            fprintf_P(crc_stdout, PSTR(" %u"), measurements[n][s]);
         }
         fputc('\n', crc_stdout);
     }
@@ -396,13 +402,6 @@ cmd_init()
 }
 
 static void
-cmd_settime(const char *str)
-{
-    clock_epoch = strtoul(str, NULL, 10);
-    printf_P(PSTR("Time set to %lu\n"), clock_epoch);
-}
-
-static void
 check_first_startup()
 {
     uint16_t magic;
@@ -448,11 +447,6 @@ read_handler()
     {
         cmd_add_all();
     }
-    else if (strncmp_P(readbuf, PSTR("settime "), 
-                strlen("settime ") == 0))
-    {
-        cmd_settime(&readbuf[strlen("settime ")]);
-    }
     else if (strcmp_P(readbuf, PSTR("init")) == 0)
     {
         cmd_init();
@@ -487,13 +481,12 @@ ISR(USART_RX_vect)
 {
     char c = UDR0;
     uart_putchar(c, NULL);
-    // XXX move this out of interrupt handler
     if (c == '\r' || c == '\n')
     {
         if (readpos > 0)
         {
             readbuf[readpos] = '\0';
-            read_handler();
+            have_cmd = 1;
             readpos = 0;
         }
     }
@@ -674,15 +667,18 @@ do_comms()
 	
 	// write sd card here? same 3.3v regulator...
 	
-    printf("ready> \n");
-
 	for (comms_timeout = WAKE_SECS; comms_timeout > 0;  )
 	{
         if (need_measurement)
         {
             need_measurement = 0;
-            printf("measure from do_comms\n");
             do_measurement();
+        }
+
+        if (have_cmd)
+        {
+            have_cmd = 0;
+            read_handler();
         }
 
         // wait for commands from the master
