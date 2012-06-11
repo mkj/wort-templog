@@ -11,7 +11,9 @@ FETCH_TRIES = 3
 TESTING = True
 
 import sys
-#import httplib
+# for wrt
+sys.path.append('/root/python')
+import httplib
 import time
 import traceback
 
@@ -60,7 +62,7 @@ def fetch(sock):
         if l == 'END\n':
             break
 
-        lines.append(l)
+        lines.append(l.rstrip('\n'))
 
     print lines
 
@@ -84,7 +86,7 @@ def fetch(sock):
         print>>sys.stderr, "Bad CRC: calculated 0x%x vs received 0x%x\n" % (crc, recv_crc)
         return None
 
-    return ''.join(lines)
+    return lines
 
 @retry()
 def turn_off(sock):
@@ -115,7 +117,7 @@ def do_comms(sock):
     if not d:
         return
 
-    res = send_results()
+    res = send_results(d)
     if not res:
         return
 
