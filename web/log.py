@@ -2,10 +2,10 @@ import rrdtool
 import os
 import sys
 
-DATA_PATH='data'
+import config
 
 def sensor_rrd_path(s):
-    return '%s/sensor_%s.rrd' % s
+    return '%s/sensor_%s.rrd' % (config.DATA_PATH, s)
 
 def create_rrd(sensor_id):
     rrdtool.create(sensor_rrd_path(sensor_id), '-s', '300',
@@ -38,8 +38,12 @@ def parse(lines):
     for s in sensors:
         meas.append([])
 
+    def val_scale(v):
+        # convert decidegrees to degrees
+        return 0.1 * v
+
     for n in xrange(num_measurements):
-        vals = [int(entries["meas%d" % n].strip().split())]
+        vals = [val_scale(int(entries["meas%d" % n].strip().split()))]
         if len(vals) != num_sensors:
             raise Exception("Wrong number of sensors for measurement %d" % n)
         # we make an array of values for each sensor
