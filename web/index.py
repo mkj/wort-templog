@@ -1,11 +1,27 @@
 #!/usr/bin/env python2.7
 
+import binascii
+import hmac
+
 import bottle
 from bottle import route, request
 
+import config
+import log
+
 @route('/update', method='post')
 def update():
-    return "Done"
+    enc_lines = request.forms.lines
+    mac = request.forms.hmac
+
+    if hmac.new(config.HMAC_KEY, enc_lines).hexdigest() != mac:
+        raise HTTPError(code = 403, output = "Bad key")
+
+    lines = binascii.a2b_base64(enc_lines).split('\n')
+
+    log.parse(lines)
+
+    return "OK"
 
 @route('/graph.png')
 def graph():

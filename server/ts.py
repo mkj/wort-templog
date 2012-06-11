@@ -16,6 +16,10 @@ sys.path.append('/root/python')
 import httplib
 import time
 import traceback
+import binascii
+import hmac
+
+import config
 
 from utils import monotonic_time, retry, readline, crc16
 
@@ -104,6 +108,14 @@ def turn_off(sock):
         print>>sys.stderr, "Bad response to btoff '%s'\n" % l
 
     return int(next_wake)
+
+def send_results(lines):
+    enc_lines = binascii.b2a_base64('\n'.join(lines))
+    hmac.new(config.HMAC_KEY, enc_lines).hexdigest()
+
+    url_data = urllib.url_encode( ('lines', enc_lines), ('hmac', mac) )
+    con = urllib2.urlopen(config.UPDATE_URL, url_data)
+
 
 def do_comms(sock):
     print "do_comms"
