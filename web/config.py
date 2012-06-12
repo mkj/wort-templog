@@ -3,3 +3,10 @@ DATA_PATH = 'data'
 
 HMAC_KEY = 'a hmac key'
 
+GRAPH_WIDTH = 800
+
+LINE_WIDTH = 2
+
+SENSOR_NAMES = {}
+
+SENSOR_COLOURS = {}
