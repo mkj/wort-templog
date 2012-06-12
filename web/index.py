@@ -26,7 +26,19 @@ def update():
 
 @route('/graph.png')
 def graph():
-    pass
+    start_secs = int(request.query.start)
+    # url takes time in hours or days
+    if 'day' in request.query:
+        start_day = datetime.strptime(request.query.day, '%Y%m%d')
+        start = time.mktime(start_day.timetuple())
+        length = int(request.query.length) * 3600 * 24
+    else:
+        start_hour = datetime.strptime(request.query.hour, '%Y%m%d%H')
+        start = time.mktime(start_hour.timetuple())
+        length = int(request.query.length) * 3600
+
+    response.set_header('Content-Type', 'image/png')
+    return log.graph_png(start, length)
 
 @route('/')
 def top():
