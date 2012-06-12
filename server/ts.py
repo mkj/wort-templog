@@ -110,7 +110,7 @@ def turn_off(sock):
     return int(next_wake)
 
 def send_results(lines):
-    enc_lines = binascii.b2a_base64('\n'.join(lines))
+    enc_lines = binascii.b2a_base64(zlib.compress('\n'.join(lines)))
     hmac.new(config.HMAC_KEY, enc_lines).hexdigest()
 
     url_data = urllib.url_encode( ('lines', enc_lines), ('hmac', mac) )
