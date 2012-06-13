@@ -262,7 +262,7 @@ static void
 cmd_clear()
 {
     n_measurements = 0;
-    printf_P(PSTR("Cleared\n"));
+    printf_P(PSTR("cleared\n"));
 }
 
 static void

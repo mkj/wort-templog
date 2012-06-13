@@ -109,13 +109,28 @@ def turn_off(sock):
 
     return int(next_wake)
 
+@retry()
+def clear_meas(sock):
+    sock.send("clear\n");
+    l = readline(sock)
+    if l and l.rstrip() == 'cleared':
+        return True
+
+    print>>sys.stderr, "Bad response to clear %s\n" % str(l)
+    return False
+
 def send_results(lines):
     enc_lines = binascii.b2a_base64(zlib.compress('\n'.join(lines)))
     hmac.new(config.HMAC_KEY, enc_lines).hexdigest()
 
     url_data = urllib.url_encode( ('lines', enc_lines), ('hmac', mac) )
     con = urllib2.urlopen(config.UPDATE_URL, url_data)
-
+    result = con.read(100)
+    if result == 'OK':
+        return True
+    else:
+        print>>sys.stderr, "Bad result '%s'" % result
+        return False
 
 def do_comms(sock):
     print "do_comms"
