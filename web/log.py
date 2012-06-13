@@ -3,6 +3,8 @@ import os
 import os.path
 import sys
 import glob
+import hashlib
+import tempfile
 from colorsys import hls_to_rgb
 
 import config
@@ -25,7 +27,7 @@ def create_rrd(sensor_id):
 def colour_from_string(str):
     def f(off):
         return ord(hashval[off]) / 256.0
-    hashval = sha.new(str).digest()
+    hashval = hashlib.sha1(str).digest()
     hue = f(5)
     li = f(1) * 0.15 + 0.55
     sat = f(2) * 0.5 + .5
@@ -40,16 +42,22 @@ def graph_png(start, length):
         graph_args.append('DEF:%(vname)s=%(rrdfile)s:temp:AVERAGE' % locals())
         width = config.LINE_WIDTH
         legend = config.SENSOR_NAMES.get(sensor, sensor)
-        colour = config.SENSOR_COLOURS.get(legend, colour_from_string(r))
+        colour = config.SENSOR_COLOURS.get(legend, colour_from_string(sensor))
         graph_args.append('LINE%(width)f:%(vname)s#%(colour)s:%(legend)s' % locals())
 
     tempf = tempfile.NamedTemporaryFile()
-    args = [tempf.name, '-s', str(start),
-        '-e', str(start+length),
-        '-w', config.GRAPH_WIDTH,
+    args = [tempf.name, '-s', str(int(start)),
+        '-e', str(int(start+length)),
+        '-w', str(config.GRAPH_WIDTH),
+        '-h', str(config.GRAPH_HEIGHT),
         '--slope-mode',
-        '--imgformat', 'PNG']
+        '--border', '0',
+        '--color', 'BACK#ffffff',
+        '--imgformat', 'PNG'] \
         + graph_args
+    if config.GRAPH_FONT:
+        args += ['--font', 'DEFAULT:0:%s' % config.GRAPH_FONT]
+    print>>sys.stderr, args
     rrdtool.graph(*args)
     return tempf.read()
 
@@ -59,15 +67,15 @@ def sensor_update(sensor_id, measurements, first_real_time, time_step):
     except IOError, e:
         create_rrd(sensor_id)
 
-    value_text = ' '.join('%f:%f' % p for p in 
-        zip(measurements, 
-        (first_real_time + time_step*t for t in xrange(len(measurements)))))
+    values = ['%f:%f' % p for p in 
+        zip((first_real_time + time_step*t for t in xrange(len(measurements))),
+            measurements)]
 
-    rrdtool.update(sensor_rrd_path(sensor_id), value_text)
+    rrdtool.update(sensor_rrd_path(sensor_id), *values)
 
 def parse(lines):
     entries = dict(l.split('=', 1) for l in lines)
-    if len(entries) != len(lines);
+    if len(entries) != len(lines):
         raise Exception("Keys are not unique")
 
     num_sensors = int(entries['sensors'])
@@ -91,7 +99,7 @@ def parse(lines):
         for s in xrange(num_sensors):
             meas[s].append(vals[s])
 
-    avr_now = float(entries['now')
+    avr_now = float(entries['now'])
     avr_first_time = float(entries['first_time'])
     time_step = float(entries['time_step'])
 
