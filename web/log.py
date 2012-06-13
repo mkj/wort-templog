@@ -71,7 +71,10 @@ def sensor_update(sensor_id, measurements, first_real_time, time_step):
         zip((first_real_time + time_step*t for t in xrange(len(measurements))),
             measurements)]
 
-    rrdtool.update(sensor_rrd_path(sensor_id), *values)
+    rrdfile = sensor_rrd_path(sensor_id)
+    rrdtool.update(rrdfile, *values)
+    f = file(rrdfile)
+    os.fsync(f.fileno())
 
 def parse(lines):
     entries = dict(l.split('=', 1) for l in lines)
