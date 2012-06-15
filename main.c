@@ -29,13 +29,15 @@
 
 // 1 second. we have 1024 prescaler, 32768 crystal.
 #define SLEEP_COMPARE 32
-#define MEASURE_WAKE 10
+// limited to uint16_t
+#define MEASURE_WAKE 300
 
 #define VALUE_NOSENSOR -9000
 #define VALUE_BROKEN -8000
 
-// limited to uint16_t for now
+// limited to uint16_t
 #define COMMS_WAKE 3600
+// limited to uint8_t
 #define WAKE_SECS 250 // XXX testing
 
 #define BAUD 19200
@@ -49,11 +51,15 @@
 #define DDR_SHDN DDRD
 #define PIN_SHDN PD7
 
+// limited to uint16_t
 #define NUM_MEASUREMENTS 100
+// limited to uint8_t
 #define MAX_SENSORS 5
 
 // fixed at 8, have a shorter name
 #define ID_LEN OW_ROMCODE_SIZE
+
+// #define HAVE_UART_ECHO
 
 int uart_putchar(char c, FILE *stream);
 static void long_delay(int ms);
@@ -87,7 +93,7 @@ static uint8_t readpos;
 static char readbuf[30];
 static uint8_t have_cmd;
 
-static uint8_t measure_count;
+static uint16_t measure_count;
 static uint16_t comms_count;
 
 static uint32_t clock_epoch;
@@ -277,7 +283,7 @@ cmd_btoff()
 static void
 cmd_measure()
 {
-    printf_P(PSTR("Measuring\n"));
+    printf_P(PSTR("measuring\n"));
     need_measurement = 1;
 }
 
@@ -480,7 +486,9 @@ ISR(INT0_vect)
 ISR(USART_RX_vect)
 {
     char c = UDR0;
+#ifdef HAVE_UART_ECHO
     uart_putchar(c, NULL);
+#endif
     if (c == '\r' || c == '\n')
     {
         if (readpos > 0)

@@ -73,10 +73,22 @@ def sensor_update(sensor_id, measurements, first_real_time, time_step):
 
     rrdfile = sensor_rrd_path(sensor_id)
     rrdtool.update(rrdfile, *values)
+
+    # be paranois
     f = file(rrdfile)
     os.fsync(f.fileno())
 
+def record_debug(lines):
+    f = open('%s/debug.log', config.DATA_PATH, 'a+')
+    f.write('===== %s =====' % time.strftime('%a, %d %b %Y %H:%M:%S')
+    f.writelines(('%s\n' % s for s in lines))
+    f.flush()
+    return f
+
 def parse(lines):
+   
+    debugf = record_debug(lines):
+
     entries = dict(l.split('=', 1) for l in lines)
     if len(entries) != len(lines):
         raise Exception("Keys are not unique")
@@ -110,3 +122,6 @@ def parse(lines):
 
     for sensor_id, measurements in zip(sensors, meas):
         sensor_update(sensor_id, measurements, first_real_time, time_step)
+
+    debugf.write("Updated %d sensors\n" % len(sensors)
+    debugf.flush()
