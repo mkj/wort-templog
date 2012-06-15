@@ -3,6 +3,8 @@ DATA_PATH = 'data'
 
 HMAC_KEY = 'a hmac key'
 
+UPDATE_URL = 'https://evil.ucc.asn.au/~matt/templog/update'
+
 GRAPH_WIDTH = 800
 GRAPH_HEIGHT = 400
 

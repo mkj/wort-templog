@@ -82,7 +82,6 @@ flash:	all
 checkprog:	
 	$(AVRDUDE) -v 
 
-
 fuse:
 	$(AVRDUDE) $(FUSES)
 
