@@ -18,6 +18,7 @@ import time
 import traceback
 import binascii
 import hmac
+import zlib
 
 import config
 
