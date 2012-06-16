@@ -30,7 +30,7 @@
 // 1 second. we have 1024 prescaler, 32768 crystal.
 #define SLEEP_COMPARE 32
 // limited to uint16_t
-#define MEASURE_WAKE 300
+#define MEASURE_WAKE 20
 
 #define VALUE_NOSENSOR -9000
 #define VALUE_BROKEN -8000
@@ -234,11 +234,11 @@ cmd_fetch()
 
     fprintf_P(crc_stdout, PSTR("START\n"));
     fprintf_P(crc_stdout, PSTR("now=%lu\n"
-                                "time_step=%lu\n"
+                                "time_step=%hu\n"
                                 "first_time=%lu\n"
                                 "last_time=%lu\n"), 
                                 clock_epoch, 
-                                MEASURE_WAKE, 
+                                (uint16_t)MEASURE_WAKE, 
                                 first_measurement_clock, 
                                 last_measurement_clock);
     fprintf_P(crc_stdout, PSTR("sensors=%u\n"), n_sensors);
@@ -250,13 +250,13 @@ cmd_fetch()
         printhex(id, ID_LEN, crc_stdout);
         fputc('\n', crc_stdout);
     }
-    fprintf_P(crc_stdout, PSTR("measurements=%u\n"), n_measurements);
+    fprintf_P(crc_stdout, PSTR("measurements=%hu\n"), n_measurements);
     for (uint16_t n = 0; n < n_measurements; n++)
     {
         fprintf_P(crc_stdout, PSTR("meas%u="), n);
         for (uint8_t s = 0; s < n_sensors; s++)
         {
-            fprintf_P(crc_stdout, PSTR(" %u"), measurements[n][s]);
+            fprintf_P(crc_stdout, PSTR(" %hu"), measurements[n][s]);
         }
         fputc('\n', crc_stdout);
     }
@@ -519,7 +519,8 @@ ISR(TIMER2_COMPA_vect)
 
     if (comms_timeout != 0)
     {
-        comms_timeout--;
+        // XXX testing
+        //comms_timeout--;
     }
 
     if (measure_count >= MEASURE_WAKE)
@@ -750,6 +751,7 @@ int main(void)
     sei();
 
     need_comms = 1;
+    need_measurement = 1;
 
 #if 0
     for (;;)
