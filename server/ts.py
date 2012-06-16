@@ -19,6 +19,8 @@ import traceback
 import binascii
 import hmac
 import zlib
+import urllib
+import urllib2
 
 import config
 
@@ -57,7 +59,6 @@ def fetch(sock):
         print>>sys.stderr, "Bad expected START line '%s'\n" % l.rstrip('\n')
         return None
     crc = crc16(l, crc)
-    lines.append(l)
 
     while True:
         l = readline(sock)
@@ -122,9 +123,9 @@ def clear_meas(sock):
 
 def send_results(lines):
     enc_lines = binascii.b2a_base64(zlib.compress('\n'.join(lines)))
-    hmac.new(config.HMAC_KEY, enc_lines).hexdigest()
+    mac = hmac.new(config.HMAC_KEY, enc_lines).hexdigest()
 
-    url_data = urllib.url_encode( ('lines', enc_lines), ('hmac', mac) )
+    url_data = urllib.urlencode( {'lines': enc_lines, 'hmac': mac} )
     con = urllib2.urlopen(config.UPDATE_URL, url_data)
     result = con.read(100)
     if result == 'OK':
