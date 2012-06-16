@@ -1,3 +1,4 @@
+#:vim:et:ts=4:sts=4:sw=4:
 import rrdtool
 import os
 import os.path
@@ -5,6 +6,8 @@ import sys
 import glob
 import hashlib
 import tempfile
+import time
+import syslog
 from colorsys import hls_to_rgb
 
 import config
@@ -67,36 +70,40 @@ def sensor_update(sensor_id, measurements, first_real_time, time_step):
     except IOError, e:
         create_rrd(sensor_id)
 
-    values = ['%f:%f' % p for p in 
-        zip((first_real_time + time_step*t for t in xrange(len(measurements))),
-            measurements)]
+    print>>sys.stderr, sensor_id, measurements, first_real_time, time_step
 
-    rrdfile = sensor_rrd_path(sensor_id)
-    rrdtool.update(rrdfile, *values)
+    if measurements:
+        values = ['%d:%f' % p for p in 
+            zip((first_real_time + time_step*t for t in xrange(len(measurements))),
+                measurements)]
 
-    # be paranois
-    f = file(rrdfile)
-    os.fsync(f.fileno())
+        rrdfile = sensor_rrd_path(sensor_id)
+        print>>sys.stderr, values
+        rrdtool.update(rrdfile, *values)
+
+        # be paranoid
+        f = file(rrdfile)
+        os.fsync(f.fileno())
 
 def record_debug(lines):
-    f = open('%s/debug.log', config.DATA_PATH, 'a+')
-    f.write('===== %s =====' % time.strftime('%a, %d %b %Y %H:%M:%S')
+    f = open('%s/debug.log' % config.DATA_PATH, 'a+')
+    f.write('===== %s =====\n' % time.strftime('%a, %d %b %Y %H:%M:%S'))
     f.writelines(('%s\n' % s for s in lines))
     f.flush()
     return f
 
 def parse(lines):
    
-    debugf = record_debug(lines):
+    debugf = record_debug(lines)
 
     entries = dict(l.split('=', 1) for l in lines)
     if len(entries) != len(lines):
         raise Exception("Keys are not unique")
 
     num_sensors = int(entries['sensors'])
-    num_measurements = int(entries['sensors'])
+    num_measurements = int(entries['measurements'])
 
-    sensor_ids = [entries['sensor_id%d' % n] for n in xrange(num_sensors)]
+    sensors = [entries['sensor_id%d' % n] for n in xrange(num_sensors)]
 
     meas = []
     for s in sensors:
@@ -107,7 +114,7 @@ def parse(lines):
         return 0.1 * v
 
     for n in xrange(num_measurements):
-        vals = [val_scale(int(entries["meas%d" % n].strip().split()))]
+        vals = [val_scale(int(x)) for x in entries["meas%d" % n].strip().split()]
         if len(vals) != num_sensors:
             raise Exception("Wrong number of sensors for measurement %d" % n)
         # we make an array of values for each sensor
@@ -123,5 +130,5 @@ def parse(lines):
     for sensor_id, measurements in zip(sensors, meas):
         sensor_update(sensor_id, measurements, first_real_time, time_step)
 
-    debugf.write("Updated %d sensors\n" % len(sensors)
+    debugf.write("Updated %d sensors\n" % len(sensors))
     debugf.flush()
