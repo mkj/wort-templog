@@ -1,5 +1,5 @@
 
-DATA_PATH = 'data'
+DATA_PATH = '/home/matt/templog/web/data'
 
 HMAC_KEY = 'a hmac key'
 

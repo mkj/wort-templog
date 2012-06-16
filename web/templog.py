@@ -45,6 +45,17 @@ def graph():
 def top():
     return bottle.template('top', urlparams=request.query_string)
 
+@route('/test')
+def test():
+    import config
+    import os
+    f = open('%s/testout' % config.DATA_PATH, 'a+')
+    f.write("more")
+    f.flush()
+    f.close()
+
+    return 'done'
+
 def main():
     bottle.debug(True)
     bottle.run(port=9999, reloader=True)
