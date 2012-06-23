@@ -126,10 +126,10 @@ setup_chip()
     DDR_LED |= _BV(PIN_LED);
     DDR_SHDN |= _BV(PIN_SHDN);
 
-	// INT0 setup
-	EIMSK = _BV(INT0);
-	// set pullup
-	PORTD |= _BV(PD2);
+    // INT0 setup
+    EIMSK = _BV(INT0);
+    // set pullup
+    PORTD |= _BV(PD2);
 }
 
 static void
@@ -179,7 +179,7 @@ uart_on()
     UCSR0B = _BV(RXCIE0) | _BV(RXEN0) | _BV(TXEN0);
     //8N1
     UCSR0C = _BV(UCSZ01) | _BV(UCSZ00);
-	uart_enabled = 1;
+    uart_enabled = 1;
 }
 
 static void 
@@ -187,7 +187,7 @@ uart_off()
 {
     // Turn of interrupts and disable tx/rx
     UCSR0B = 0;
-	uart_enabled = 0;
+    uart_enabled = 0;
 
     // Power reduction register
     //PRR |= _BV(PRUSART0);
@@ -196,10 +196,10 @@ uart_off()
 int 
 uart_putchar(char c, FILE *stream)
 {
-	if (!uart_enabled)
-	{
-		return EOF;
-	}
+    if (!uart_enabled)
+    {
+        return EOF;
+    }
     // XXX could perhaps sleep in the loop for power.
     if (c == '\n')
     {
@@ -376,21 +376,21 @@ add_sensor(uint8_t *id)
 static void
 cmd_add_all()
 {
-	uint8_t id[OW_ROMCODE_SIZE];
+    uint8_t id[OW_ROMCODE_SIZE];
     printf_P("Adding all\n");
     ow_reset();
-	for( uint8_t diff = OW_SEARCH_FIRST; diff != OW_LAST_DEVICE; )
-	{
-		diff = ow_rom_search( diff, &id[0] );
-		if( diff == OW_PRESENCE_ERR ) {
-			printf_P( PSTR("No Sensor found\r") );
-			return;
-		}
-		
-		if( diff == OW_DATA_ERR ) {
-			printf_P( PSTR("Bus Error\r") );
-			return;
-		}
+    for( uint8_t diff = OW_SEARCH_FIRST; diff != OW_LAST_DEVICE; )
+    {
+        diff = ow_rom_search( diff, &id[0] );
+        if( diff == OW_PRESENCE_ERR ) {
+            printf_P( PSTR("No Sensor found\r") );
+            return;
+        }
+        
+        if( diff == OW_DATA_ERR ) {
+            printf_P( PSTR("Bus Error\r") );
+            return;
+        }
         add_sensor(id);
     }
 }
@@ -464,7 +464,7 @@ read_handler()
 
 ISR(INT0_vect)
 {
-	need_comms = 1;
+    need_comms = 1;
     blink();
     _delay_ms(100);
     blink();
@@ -512,7 +512,7 @@ ISR(TIMER2_COMPA_vect)
 {
     TCNT2 = 0;
     measure_count ++;
-	comms_count ++;
+    comms_count ++;
 
     clock_epoch ++;
 
@@ -528,11 +528,11 @@ ISR(TIMER2_COMPA_vect)
         need_measurement = 1;
     }
 
-	if (comms_count >= COMMS_WAKE)
-	{
-		comms_count = 0;
-		need_comms = 1;
-	}
+    if (comms_count >= COMMS_WAKE)
+    {
+        comms_count = 0;
+        need_comms = 1;
+    }
 
 }
 
@@ -669,14 +669,14 @@ do_measurement()
 static void
 do_comms()
 {
-	// turn on bluetooth
+    // turn on bluetooth
     set_aux_power(1);
     uart_on();
-	
-	// write sd card here? same 3.3v regulator...
-	
-	for (comms_timeout = WAKE_SECS; comms_timeout > 0;  )
-	{
+    
+    // write sd card here? same 3.3v regulator...
+    
+    for (comms_timeout = WAKE_SECS; comms_timeout > 0;  )
+    {
         if (need_measurement)
         {
             need_measurement = 0;
@@ -690,8 +690,8 @@ do_comms()
         }
 
         // wait for commands from the master
-		idle_sleep();
-	}
+        idle_sleep();
+    }
 
     uart_off();
     set_aux_power(0);
@@ -758,17 +758,17 @@ int main(void)
         {
             need_measurement = 0;
             do_measurement();
-			continue;
+            continue;
         }
 
         if (need_comms)
         {
             need_comms = 0;
             do_comms();
-			continue;
+            continue;
         }
 
-		deep_sleep();
+        deep_sleep();
         blink();
     }
 
