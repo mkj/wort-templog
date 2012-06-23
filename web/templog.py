@@ -58,7 +58,8 @@ def test():
 
 def main():
     bottle.debug(True)
-    bottle.run(port=9999, reloader=True)
+    bottle.run(server='cgi')
+    #bottle.run(port=9999, reloader=True)
 
 if __name__ == '__main__':
     main()

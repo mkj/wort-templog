@@ -167,6 +167,7 @@ def sleep_for(secs):
         time.sleep(length)
 
 def main():
+	next_wake_time = 0
 
     while True:
         sock = None
@@ -179,12 +180,13 @@ def main():
         if sock:
             next_wake = None
             try:
-                next_wake = do_comms(sock)
+                next_wake_interval = do_comms(sock)
+                next_wake_time = time.now() + next_wake_interval
             except Exception, e:
                 print>>sys.stderr, "Error in do_comms:"
                 traceback.print_exc(file=sys.stderr)
-            if next_wake:
-                sleep_time = min(next_wake+EXTRA_WAKEUP, sleep_time)
+            if next_wake_time > time.now():
+                sleep_time = min(next_wake_time - time.now() - EXTRA_WAKEUP, sleep_time)
 
         if TESTING:
             print "Sleeping for %d" % sleep_time

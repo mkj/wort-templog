@@ -1,9 +1,3 @@
-/* Name: main.c
- * Author: <insert your name here>
- * Copyright: <insert your copyright message here>
- * License: <insert your license reference here>
- */
-
 #include <stdio.h>
 #include <string.h>
 #include <stddef.h>
@@ -85,6 +79,7 @@ static uint32_t last_measurement_clock;
 // boolean flags
 static uint8_t need_measurement;
 static uint8_t need_comms;
+static uint8_t uart_enabled;
 
 // counts down from WAKE_SECS to 0, goes to deep sleep when hits 0
 static uint8_t comms_timeout;
@@ -184,23 +179,27 @@ uart_on()
     UCSR0B = _BV(RXCIE0) | _BV(RXEN0) | _BV(TXEN0);
     //8N1
     UCSR0C = _BV(UCSZ01) | _BV(UCSZ00);
+	uart_enabled = 1;
 }
 
 static void 
 uart_off()
 {
-#if 0
     // Turn of interrupts and disable tx/rx
     UCSR0B = 0;
+	uart_enabled = 0;
 
     // Power reduction register
     //PRR |= _BV(PRUSART0);
-#endif
 }
 
 int 
 uart_putchar(char c, FILE *stream)
 {
+	if (!uart_enabled)
+	{
+		return EOF;
+	}
     // XXX could perhaps sleep in the loop for power.
     if (c == '\n')
     {
@@ -222,7 +221,7 @@ uart_putchar(char c, FILE *stream)
             crc_out = _crc_ccitt_update(crc_out, '\n');
         }
     }
-    return 0;
+    return (unsigned char)c;
 }
 
 static void
@@ -753,13 +752,6 @@ int main(void)
     need_comms = 1;
     need_measurement = 1;
 
-#if 0
-    for (;;)
-    {
-        do_comms();
-    }
-#endif
-
     for(;;)
     {
         if (need_measurement)
@@ -778,7 +770,6 @@ int main(void)
 
 		deep_sleep();
         blink();
-        printf(".");
     }
 
     return 0;   /* never reached */
