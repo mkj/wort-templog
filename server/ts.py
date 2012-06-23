@@ -1,14 +1,14 @@
 #!/usr/bin/env python2.7
 
 BTADDR = "00:12:03:27:70:88"
-SLEEP_TIME = 180
+SLEEP_TIME = 2
 # time that the bluetooth takes to get going?
 EXTRA_WAKEUP = 0
 
 FETCH_TRIES = 3
 
 # avoid turning off the bluetooth etc.
-TESTING = True
+TESTING = False
 
 import sys
 # for wrt
@@ -97,7 +97,7 @@ def fetch(sock):
 @retry()
 def turn_off(sock):
     if TESTING:
-        return None
+        return 99
     sock.send("btoff\n");
     # read newline
     l = readline(sock)
@@ -105,9 +105,11 @@ def turn_off(sock):
         print>>sys.stderr, "Bad response to btoff\n"
         return None
 
-    off, next_wake = l.rstrip().split(':')
-    if off != 'Off':
+    if not l.startswith('off:'):
         print>>sys.stderr, "Bad response to btoff '%s'\n" % l
+        return None
+    off, next_wake = l.rstrip().split(':')
+    print>>sys.stderr, "Next wake %s" % next_wake
 
     return int(next_wake)
 
@@ -167,7 +169,7 @@ def sleep_for(secs):
         time.sleep(length)
 
 def main():
-	next_wake_time = 0
+    next_wake_time = 0
 
     while True:
         sock = None
@@ -181,15 +183,14 @@ def main():
             next_wake = None
             try:
                 next_wake_interval = do_comms(sock)
-                next_wake_time = time.now() + next_wake_interval
+                next_wake_time = time.time() + next_wake_interval
             except Exception, e:
                 print>>sys.stderr, "Error in do_comms:"
                 traceback.print_exc(file=sys.stderr)
-            if next_wake_time > time.now():
-                sleep_time = min(next_wake_time - time.now() - EXTRA_WAKEUP, sleep_time)
+            if next_wake_time > time.time():
+                sleep_time = min(next_wake_time - time.time() - EXTRA_WAKEUP, sleep_time)
 
-        if TESTING:
-            print "Sleeping for %d" % sleep_time
+        print "Sleeping for %d" % sleep_time
         sleep_for(sleep_time)
 
 if __name__ == '__main__':
