@@ -79,6 +79,7 @@ def sensor_update(sensor_id, measurements, first_real_time, time_step):
 
         rrdfile = sensor_rrd_path(sensor_id)
         print>>sys.stderr, values
+        # XXX what to do here when it fails...
         rrdtool.update(rrdfile, *values)
 
         # be paranoid
@@ -125,9 +126,15 @@ def parse(lines):
     avr_first_time = float(entries['first_time'])
     time_step = float(entries['time_step'])
 
+    #sqlite 
+    # - time
+    # - voltage
+    # - boot time
+
     first_real_time = time.time() - (avr_now - avr_first_time)
 
     for sensor_id, measurements in zip(sensors, meas):
+        # XXX sqlite add
         sensor_update(sensor_id, measurements, first_real_time, time_step)
 
     debugf.write("Updated %d sensors\n" % len(sensors))
