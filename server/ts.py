@@ -1,7 +1,7 @@
 #!/usr/bin/env python2.7
 
 BTADDR = "00:12:03:27:70:88"
-SLEEP_TIME = 2
+SLEEP_TIME = 5
 # time that the bluetooth takes to get going?
 EXTRA_WAKEUP = 0
 

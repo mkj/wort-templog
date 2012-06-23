@@ -24,15 +24,15 @@
 // 1 second. we have 1024 prescaler, 32768 crystal.
 #define SLEEP_COMPARE 32
 // limited to uint16_t
-#define MEASURE_WAKE 20
+#define MEASURE_WAKE 5 // testing 
 
 #define VALUE_NOSENSOR -9000
 #define VALUE_BROKEN -8000
 
 // limited to uint16_t
-#define COMMS_WAKE 3600
+#define COMMS_WAKE 40 // XXX testing
 // limited to uint8_t
-#define WAKE_SECS 250 // XXX testing
+#define WAKE_SECS 30 // XXX testing
 
 #define BAUD 19200
 #define UBRR ((F_CPU)/8/(BAUD)-1)
@@ -141,7 +141,7 @@ set_aux_power(uint8_t on)
     }
     else
     {
-        //PORT_SHDN |= _BV(PIN_SHDN);
+        PORT_SHDN |= _BV(PIN_SHDN);
     }
 }
 
@@ -468,17 +468,6 @@ ISR(INT0_vect)
     blink();
     _delay_ms(100);
     blink();
-    _delay_ms(100);
-    blink();
-    _delay_ms(100);
-    blink();
-    _delay_ms(100);
-    blink();
-    _delay_ms(100);
-    blink();
-    _delay_ms(100);
-    blink();
-    _delay_ms(100);
 }
 
 
@@ -518,8 +507,7 @@ ISR(TIMER2_COMPA_vect)
 
     if (comms_timeout != 0)
     {
-        // XXX testing
-        //comms_timeout--;
+        comms_timeout--;
     }
 
     if (measure_count >= MEASURE_WAKE)
@@ -681,12 +669,14 @@ do_comms()
         {
             need_measurement = 0;
             do_measurement();
+            continue;
         }
 
         if (have_cmd)
         {
             have_cmd = 0;
             read_handler();
+            continue;
         }
 
         // wait for commands from the master

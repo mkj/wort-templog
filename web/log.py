@@ -8,6 +8,7 @@ import hashlib
 import tempfile
 import time
 import syslog
+import sqlite3
 from colorsys import hls_to_rgb
 
 import config
