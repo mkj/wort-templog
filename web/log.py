@@ -21,10 +21,15 @@ def all_sensors():
         for r in glob.glob('%s/*.rrd' % config.DATA_PATH)]
 
 def create_rrd(sensor_id):
-    rrdtool.create(sensor_rrd_path(sensor_id), '-s', '300',
-                'DS:temp:GAUGE:600:-10:100',
-                'RRA:AVERAGE:0.5:1:1051200')
+    # start date of 10 seconds into 1970 is used so that we can
+    # update with prior values straight away.
+    args = [sensor_rrd_path(sensor_id), 
+                    '--start', '10',
+                    '--step', '300',
+                    'DS:temp:GAUGE:600:-10:100',
+                    'RRA:AVERAGE:0.5:1:1051200']
 
+    rrdtool.create(*args)
 
 # stolen from viewmtn, stolen from monotone-viz
 def colour_from_string(str):
@@ -56,6 +61,7 @@ def graph_png(start, length):
         '--slope-mode',
         '--border', '0',
         '--color', 'BACK#ffffff',
+        '--alt-y-grid',
         '--imgformat', 'PNG'] \
         + graph_args
     if config.GRAPH_FONT:
