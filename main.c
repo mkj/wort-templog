@@ -619,7 +619,7 @@ adc_internal(uint16_t *millivolt_vcc, uint16_t *int_temp)
     ADCSRA = _BV(ADEN) | _BV(ADPS2);
 
     // set to measure 1.1 reference
-    ADMUX = _BV(ADLAR) | _BV(MUX3) | _BV(MUX2) | _BV(MUX1);
+    ADMUX = _BV(REFS0) | _BV(MUX3) | _BV(MUX2) | _BV(MUX1);
     ADCSRA |= _BV(ADSC);
     loop_until_bit_is_clear(ADCSRA, ADSC);
     uint8_t low_11 = ADCL;
@@ -630,14 +630,15 @@ adc_internal(uint16_t *millivolt_vcc, uint16_t *int_temp)
     *millivolt_vcc = 1000 * res_volts;
 
     // measure AVR internal temperature against 1.1 ref.
-    ADMUX = _BV(ADLAR) | _BV(MUX3) | _BV(REFS1) | _BV(REFS0);
+    ADMUX = _BV(MUX3) | _BV(REFS1) | _BV(REFS0);
     ADCSRA |= _BV(ADSC);
     loop_until_bit_is_clear(ADCSRA, ADSC);
-    uint16_t res_internal = ADCL;
-    res_internal |= ADCH << 8;
+    uint8_t low_temp = ADCL;
+    uint8_t high_temp = ADCH;
+    uint16_t res_internal = low_temp + (high_temp << 8);
     float internal_volts = res_internal * (1.1 / 1024.0);
-    // decidegrees
-    *int_temp = (internal_volts - 2.73) * 1000;
+    // millivolts
+    *int_temp = internal_volts * 1000;
 
     PRR |= _BV(PRADC);
     ADCSRA = 0;
