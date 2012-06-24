@@ -10,8 +10,9 @@ GRAPH_HEIGHT = 400
 
 LINE_WIDTH = 2
 
-SENSOR_NAMES = {'sensor_test1': "First Test"}
+SENSOR_NAMES = {'sensor_28 CE B2 1A 03 00 00 99': "Wort",
+    'sensor_28 CC C1 1A 03 00 00 D4': "Board"}
 
-SENSOR_COLOURS = {}
+SENSOR_COLOURS = {'Wort': 'e49222', 'Board': '028b3d'}
 
 GRAPH_FONT = "Courier"
