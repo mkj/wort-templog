@@ -11,7 +11,7 @@ except ImportError:
     pass
 
 DEFAULT_TRIES = 3
-READLINE_SELECT_TIMEOUT = 20
+READLINE_SELECT_TIMEOUT = 4
 
 __all__ = ('monotonic_time', 'retry')
 
