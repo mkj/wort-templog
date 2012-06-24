@@ -47,6 +47,8 @@
 #define PIN_SHDN PD7
 
 // limited to uint16_t
+// XXX - increasing this to 300 causes strange failures, 
+// not sure why
 #define NUM_MEASUREMENTS 280
 // limited to uint8_t
 #define MAX_SENSORS 3
@@ -59,6 +61,7 @@
 int uart_putchar(char c, FILE *stream);
 static void long_delay(int ms);
 static void blink();
+static void adc_internal(uint16_t *millivolt_vcc, uint16_t *int_temp);
 
 static FILE mystdout = FDEV_SETUP_STREAM(uart_putchar, NULL,
         _FDEV_SETUP_WRITE);
@@ -253,15 +256,24 @@ cmd_fetch()
     uint8_t n_sensors;
     eeprom_read(n_sensors, n_sensors);
 
+    uint16_t millivolt_vcc, int_temp;
+
+    adc_internal(&millivolt_vcc, &int_temp);
+
     fprintf_P(crc_stdout, PSTR("START\n"));
     fprintf_P(crc_stdout, PSTR("now=%lu\n"
                                 "time_step=%hu\n"
                                 "first_time=%lu\n"
-                                "last_time=%lu\n"), 
+                                "last_time=%lu\n"
+                                "voltage=%hu\n"
+                                "avrtemp=%hu\n"), 
                                 clock_epoch, 
                                 (uint16_t)MEASURE_WAKE, 
                                 first_measurement_clock, 
-                                last_measurement_clock);
+                                last_measurement_clock,
+                                millivolt_vcc,
+                                int_temp
+                                );
     fprintf_P(crc_stdout, PSTR("sensors=%u\n"), n_sensors);
     for (uint8_t s = 0; s < n_sensors; s++)
     {
@@ -595,6 +607,42 @@ idle_sleep()
     sleep_mode();
 }
 
+static void
+adc_internal(uint16_t *millivolt_vcc, uint16_t *int_temp)
+{
+    PRR &= ~_BV(PRADC);
+    
+    // left adjust
+    ADMUX = _BV(ADLAR);
+
+    // ADPS2 = /16 prescaler, 62khz at 1mhz clock
+    ADCSRA = _BV(ADEN) | _BV(ADPS2);
+
+    // set to measure 1.1 reference
+    ADMUX = _BV(ADLAR) | _BV(MUX3) | _BV(MUX2) | _BV(MUX1);
+    ADCSRA |= _BV(ADSC);
+    loop_until_bit_is_clear(ADCSRA, ADSC);
+    uint8_t low_11 = ADCL;
+    uint8_t high_11 = ADCH;
+    uint16_t f_11 = low_11 + (high_11 << 8);
+
+    float res_volts = 1.1 * 1024 / f_11;
+    *millivolt_vcc = 1000 * res_volts;
+
+    // measure AVR internal temperature against 1.1 ref.
+    ADMUX = _BV(ADLAR) | _BV(MUX3) | _BV(REFS1) | _BV(REFS0);
+    ADCSRA |= _BV(ADSC);
+    loop_until_bit_is_clear(ADCSRA, ADSC);
+    uint16_t res_internal = ADCL;
+    res_internal |= ADCH << 8;
+    float internal_volts = res_internal * (1.1 / 1024.0);
+    // decidegrees
+    *int_temp = (internal_volts - 2.73) * 1000;
+
+    PRR |= _BV(PRADC);
+    ADCSRA = 0;
+}
+
 #if 0
 // untested
 static void 
@@ -657,17 +705,13 @@ static void
 do_measurement()
 {
     uint8_t n_sensors;
-    printf("do_measurement\n");
     eeprom_read(n_sensors, n_sensors);
-    printf("do_measurement sensors %d\n", n_sensors);
 
-    uint8_t ret = simple_ds18b20_start_meas(NULL);
-    printf_P(PSTR("Read all sensors, ret %d, waiting...\n"), ret);
+    simple_ds18b20_start_meas(NULL);
     _delay_ms(DS18B20_TCONV_12BIT);
 
     if (n_measurements == NUM_MEASUREMENTS)
     {
-        printf_P(PSTR("Measurements overflow\n"));
         n_measurements = 0;
     }
 
