@@ -9,6 +9,7 @@ import tempfile
 import time
 import syslog
 import sqlite3
+import traceback
 from colorsys import hls_to_rgb
 
 import config
@@ -87,7 +88,12 @@ def sensor_update(sensor_id, measurements, first_real_time, time_step):
         rrdfile = sensor_rrd_path(sensor_id)
         print>>sys.stderr, values
         # XXX what to do here when it fails...
-        rrdtool.update(rrdfile, *values)
+        for v in values:
+            try:
+                rrdtool.update(rrdfile, v)
+            except Exception, e:
+                print>>sys.stderr, "Bad rrdtool update '%s'" % v
+                traceback.print_exc(file=sys.stderr)
 
         # be paranoid
         f = file(rrdfile)
