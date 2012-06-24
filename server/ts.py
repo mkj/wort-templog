@@ -98,6 +98,7 @@ def fetch(sock):
 def turn_off(sock):
     if TESTING:
         return 99
+    print>>sys.stderr, "sending btoff"
     sock.send("btoff\n");
     # read newline
     l = readline(sock)
