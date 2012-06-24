@@ -32,11 +32,15 @@ def graph():
     if 'day' in request.query:
         start_day = datetime.datetime.strptime(request.query.day, '%Y%m%d')
         start = time.mktime(start_day.timetuple())
-        length = int(request.query.length) * 3600 * 24
+        length = int(request.query.get('length', 5)) * 3600 * 24
     else:
-        start_hour = datetime.datetime.strptime(request.query.hour, '%Y%m%d%H')
+        if 'hour' in request.query:
+            start_hour = datetime.datetime.strptime(request.query.hour, '%Y%m%d%H')
+        else:
+            start_hour = datetime.datetime.now() - datetime.timedelta(days=1)
+
         start = time.mktime(start_hour.timetuple())
-        length = int(request.query.length) * 3600
+        length = int(request.query.get('length', 36)) * 3600
 
     response.set_header('Content-Type', 'image/png')
     return log.graph_png(start, length)

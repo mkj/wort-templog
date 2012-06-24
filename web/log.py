@@ -62,12 +62,15 @@ def graph_png(start, length):
         '-h', str(config.GRAPH_HEIGHT),
         '--slope-mode',
         '--border', '0',
+        '--y-grid', '1:1',
+        '--grid-dash', '1:0',
+        '--color', 'GRID#00000000',
+        '--color', 'MGRID#aaaaaa',
         '--color', 'BACK#ffffff',
-        '--alt-y-grid',
         '--imgformat', 'PNG'] \
         + graph_args
     if config.GRAPH_FONT:
-        args += ['--font', 'DEFAULT:0:%s' % config.GRAPH_FONT]
+        args += ['--font', 'DEFAULT:11:%s' % config.GRAPH_FONT]
     print>>sys.stderr, args
     rrdtool.graph(*args)
     return tempf.read()
