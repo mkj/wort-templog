@@ -24,15 +24,15 @@
 // 1 second. we have 1024 prescaler, 32768 crystal.
 #define SLEEP_COMPARE 32
 // limited to uint16_t
-#define MEASURE_WAKE 5 // testing 
+#define MEASURE_WAKE 60
 
 #define VALUE_NOSENSOR -9000
 #define VALUE_BROKEN -8000
 
 // limited to uint16_t
-#define COMMS_WAKE 40 // XXX testing
+#define COMMS_WAKE 3600 // XXX testing
 // limited to uint8_t
-#define WAKE_SECS 30 // XXX testing
+#define WAKE_SECS 60 // XXX testing
 
 #define BAUD 19200
 #define UBRR ((F_CPU)/8/(BAUD)-1)
@@ -46,9 +46,9 @@
 #define PIN_SHDN PD7
 
 // limited to uint16_t
-#define NUM_MEASUREMENTS 100
+#define NUM_MEASUREMENTS 280
 // limited to uint8_t
-#define MAX_SENSORS 5
+#define MAX_SENSORS 3
 
 // fixed at 8, have a shorter name
 #define ID_LEN OW_ROMCODE_SIZE
@@ -126,10 +126,10 @@ setup_chip()
     DDR_LED |= _BV(PIN_LED);
     DDR_SHDN |= _BV(PIN_SHDN);
 
-    // INT0 setup
-    EIMSK = _BV(INT0);
     // set pullup
     PORTD |= _BV(PD2);
+    // INT0 setup
+    EIMSK = _BV(INT0);
 }
 
 static void
@@ -168,7 +168,7 @@ static void
 uart_on()
 {
     // Power reduction register
-    //PRR &= ~_BV(PRUSART0);
+    PRR &= ~_BV(PRUSART0);
  
     // All of this needs to be done each time after turning off the PRR
     // baud rate
@@ -190,7 +190,7 @@ uart_off()
     uart_enabled = 0;
 
     // Power reduction register
-    //PRR |= _BV(PRUSART0);
+    PRR |= _BV(PRUSART0);
 }
 
 int 
@@ -252,7 +252,7 @@ cmd_fetch()
     fprintf_P(crc_stdout, PSTR("measurements=%hu\n"), n_measurements);
     for (uint16_t n = 0; n < n_measurements; n++)
     {
-        fprintf_P(crc_stdout, PSTR("meas%u="), n);
+        fprintf_P(crc_stdout, PSTR("meas%hu="), n);
         for (uint8_t s = 0; s < n_sensors; s++)
         {
             fprintf_P(crc_stdout, PSTR(" %hu"), measurements[n][s]);
@@ -273,9 +273,9 @@ cmd_clear()
 static void
 cmd_btoff()
 {
-    uint16_t next_wake = COMMS_WAKE - comms_count;
-    printf_P(PSTR("off:%d\n"), next_wake);
-    _delay_ms(50);
+    comms_count = 0;
+    printf_P(PSTR("off:%hu\n"), COMMS_WAKE);
+    _delay_ms(100);
     comms_timeout = 0;
 }
 
@@ -619,7 +619,7 @@ do_measurement()
 
     if (n_measurements == NUM_MEASUREMENTS)
     {
-        printf_P(PSTR("Measurements .overflow\n"));
+        printf_P(PSTR("Measurements overflow\n"));
         n_measurements = 0;
     }
 
@@ -684,6 +684,8 @@ do_comms()
     }
 
     uart_off();
+    // in case bluetooth takes time to flush
+    _delay_ms(100);
     set_aux_power(0);
 }
 
@@ -730,7 +732,7 @@ int main(void)
     uart_off();
 
     // turn off everything except timer2
-    //PRR = _BV(PRTWI) | _BV(PRTIM0) | _BV(PRTIM1) | _BV(PRSPI) | _BV(PRUSART0) | _BV(PRADC);
+    PRR = _BV(PRTWI) | _BV(PRTIM0) | _BV(PRTIM1) | _BV(PRSPI) | _BV(PRUSART0) | _BV(PRADC);
 
     // for testing
     uart_on();
@@ -759,7 +761,10 @@ int main(void)
         }
 
         deep_sleep();
-        blink();
+        if (clock_epoch % 60 == 0)
+        {
+            blink();
+        }
     }
 
     return 0;   /* never reached */
