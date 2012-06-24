@@ -7,6 +7,7 @@
 #include <util/delay.h>
 #include <avr/pgmspace.h>
 #include <avr/eeprom.h>
+#include <avr/wdt.h>
 #include <util/crc16.h>
 
 // for DWORD of get_fattime()
@@ -115,8 +116,15 @@ static void deep_sleep();
 static void
 setup_chip()
 {
-    // Set clock to 2mhz
     cli();
+
+    // stop watchdog timer (might have been used to cause a reset)
+    wdt_reset();
+    MCUSR &= ~_BV(WDRF);
+    WDTCSR |= _BV(WDCE) | _BV(WDE);
+    WDTCSR = 0;
+
+    // Set clock to 2mhz
     CLKPR = _BV(CLKPCE);
     // divide by 4
     CLKPR = _BV(CLKPS1);
@@ -294,6 +302,23 @@ cmd_btoff()
 }
 
 static void
+cmd_awake()
+{
+    comms_timeout = WAKE_SECS;
+    printf_P(PSTR("awake %hu\n"), WAKE_SECS);
+}
+
+static void
+cmd_reset()
+{
+    printf_P(PSTR("reset\n"));
+    _delay_ms(100);
+    cli(); // disable interrupts 
+    wdt_enable(WDTO_15MS); // enable watchdog 
+    while(1); // wait for watchdog to reset processor 
+}
+
+static void
 cmd_measure()
 {
     printf_P(PSTR("measuring\n"));
@@ -466,9 +491,17 @@ read_handler()
     {
         cmd_add_all();
     }
+    else if (strcmp_P(readbuf, PSTR("awake"))== 0)
+    {
+        cmd_awake();
+    }
     else if (strcmp_P(readbuf, PSTR("init")) == 0)
     {
         cmd_init();
+    }
+    else if (strcmp_P(readbuf, PSTR("reset")) == 0)
+    {
+        cmd_reset();
     }
     else
     {
@@ -479,6 +512,7 @@ read_handler()
 ISR(INT0_vect)
 {
     need_comms = 1;
+    comms_timeout = WAKE_SECS;
     blink();
     _delay_ms(100);
     blink();
@@ -727,7 +761,6 @@ ISR(BADISR_vect)
     //uart_on();
     printf_P(PSTR("Bad interrupt\n"));
 }
-
 
 int main(void)
 {
