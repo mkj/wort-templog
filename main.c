@@ -120,7 +120,11 @@ setup_chip()
     CLKPR = _BV(CLKPCE);
     // divide by 4
     CLKPR = _BV(CLKPS1);
-    sei();
+
+    // enable pullups
+    PORTB = 0xff; // XXX change when using SPI
+    PORTD = 0xff;
+    PORTC = 0xff;
 
     // 3.3v power for bluetooth and SD
     DDR_LED |= _BV(PIN_LED);
@@ -129,7 +133,17 @@ setup_chip()
     // set pullup
     PORTD |= _BV(PD2);
     // INT0 setup
+    EICRA = (1<<ISC01); // falling edge - data sheet says it won't work?
     EIMSK = _BV(INT0);
+
+    // comparator disable
+    ACSR = _BV(ACD);
+
+    // disable adc pin input buffers
+    DIDR0 = 0x3F; // acd0-adc5
+    DIDR1 = (1<<AIN1D)|(1<<AIN0D); // ain0/ain1
+
+    sei();
 }
 
 static void
