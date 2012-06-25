@@ -8,6 +8,7 @@
 #include <avr/pgmspace.h>
 #include <avr/eeprom.h>
 #include <avr/wdt.h>
+#include <util/atomic.h>
 #include <util/crc16.h>
 
 // for DWORD of get_fattime()
@@ -61,7 +62,7 @@
 int uart_putchar(char c, FILE *stream);
 static void long_delay(int ms);
 static void blink();
-static void adc_internal(uint16_t *millivolt_vcc, uint16_t *int_temp);
+static uint16_t adc_vcc();
 
 static FILE mystdout = FDEV_SETUP_STREAM(uart_putchar, NULL,
         _FDEV_SETUP_WRITE);
@@ -72,13 +73,22 @@ static FILE _crc_stdout = FDEV_SETUP_STREAM(uart_putchar, NULL,
 // convenience
 static FILE *crc_stdout = &_crc_stdout;
 
+// ---- Atomic guards required accessing these variables
+static uint32_t clock_epoch;
+static uint16_t comms_count;
+static uint16_t measure_count;
+// ---- End atomic guards required
+
 static uint16_t n_measurements;
+
 // stored as decidegrees
 static int16_t measurements[NUM_MEASUREMENTS][MAX_SENSORS];
 static uint32_t first_measurement_clock;
 // last_measurement_clock is redundant but checks that we're not missing
 // samples
 static uint32_t last_measurement_clock;
+
+static uint32_t last_comms_clock;
 
 // boolean flags
 static uint8_t need_measurement;
@@ -92,10 +102,6 @@ static uint8_t readpos;
 static char readbuf[30];
 static uint8_t have_cmd;
 
-static uint16_t measure_count;
-static uint16_t comms_count;
-
-static uint32_t clock_epoch;
 
 // thanks to http://projectgus.com/2010/07/eeprom-access-with-arduino/
 #define eeprom_read_to(dst_p, eeprom_field, dst_size) eeprom_read_block((dst_p), (void *)offsetof(struct __eeprom_data, eeprom_field), (dst_size))
@@ -256,23 +262,28 @@ cmd_fetch()
     uint8_t n_sensors;
     eeprom_read(n_sensors, n_sensors);
 
-    uint16_t millivolt_vcc, int_temp;
+    uint16_t millivolt_vcc = adc_vcc();
 
-    adc_internal(&millivolt_vcc, &int_temp);
+    uint32_t epoch_copy;
+    ATOMIC_BLOCK(ATOMIC_RESTORESTATE)
+    {
+        epoch_copy = clock_epoch;
+    }
 
     fprintf_P(crc_stdout, PSTR("START\n"));
     fprintf_P(crc_stdout, PSTR("now=%lu\n"
                                 "time_step=%hu\n"
                                 "first_time=%lu\n"
                                 "last_time=%lu\n"
+                                "comms_time=%lu\n"
                                 "voltage=%hu\n"
                                 "avrtemp=%hu\n"), 
-                                clock_epoch, 
+                                epoch_copy, 
                                 (uint16_t)MEASURE_WAKE, 
                                 first_measurement_clock, 
                                 last_measurement_clock,
-                                millivolt_vcc,
-                                int_temp
+                                last_comms_clock,
+                                millivolt_vcc
                                 );
     fprintf_P(crc_stdout, PSTR("sensors=%u\n"), n_sensors);
     for (uint8_t s = 0; s < n_sensors; s++)
@@ -307,7 +318,10 @@ cmd_clear()
 static void
 cmd_btoff()
 {
-    comms_count = 0;
+    ATOMIC_BLOCK(ATOMIC_RESTORESTATE)
+    {
+        comms_count = 0;
+    }
     printf_P(PSTR("off:%hu\n"), COMMS_WAKE);
     _delay_ms(100);
     comms_timeout = 0;
@@ -581,7 +595,6 @@ ISR(TIMER2_COMPA_vect)
         comms_count = 0;
         need_comms = 1;
     }
-
 }
 
 DWORD get_fattime (void)
@@ -607,8 +620,8 @@ idle_sleep()
     sleep_mode();
 }
 
-static void
-adc_internal(uint16_t *millivolt_vcc, uint16_t *int_temp)
+static uint16_t
+adc_vcc()
 {
     PRR &= ~_BV(PRADC);
     
@@ -620,28 +633,23 @@ adc_internal(uint16_t *millivolt_vcc, uint16_t *int_temp)
 
     // set to measure 1.1 reference
     ADMUX = _BV(REFS0) | _BV(MUX3) | _BV(MUX2) | _BV(MUX1);
-    ADCSRA |= _BV(ADSC);
-    loop_until_bit_is_clear(ADCSRA, ADSC);
+    _delay_ms(30);
+    // try a few times so it can stabilise
+    for (uint16_t n = 0; n < 20; n++)
+    {
+        ADCSRA |= _BV(ADSC);
+        loop_until_bit_is_clear(ADCSRA, ADSC);
+    }
     uint8_t low_11 = ADCL;
     uint8_t high_11 = ADCH;
     uint16_t f_11 = low_11 + (high_11 << 8);
 
     float res_volts = 1.1 * 1024 / f_11;
-    *millivolt_vcc = 1000 * res_volts;
-
-    // measure AVR internal temperature against 1.1 ref.
-    ADMUX = _BV(MUX3) | _BV(REFS1) | _BV(REFS0);
-    ADCSRA |= _BV(ADSC);
-    loop_until_bit_is_clear(ADCSRA, ADSC);
-    uint8_t low_temp = ADCL;
-    uint8_t high_temp = ADCH;
-    uint16_t res_internal = low_temp + (high_temp << 8);
-    float internal_volts = res_internal * (1.1 / 1024.0);
-    // millivolts
-    *int_temp = internal_volts * 1000;
 
     PRR |= _BV(PRADC);
     ADCSRA = 0;
+
+    return 1000 * res_volts;
 }
 
 #if 0
@@ -709,7 +717,9 @@ do_measurement()
     eeprom_read(n_sensors, n_sensors);
 
     simple_ds18b20_start_meas(NULL);
-    _delay_ms(DS18B20_TCONV_12BIT);
+    // sleep rather than using a long delay
+    deep_sleep();
+    //_delay_ms(DS18B20_TCONV_12BIT);
 
     if (n_measurements == NUM_MEASUREMENTS)
     {
@@ -737,11 +747,14 @@ do_measurement()
         measurements[n_measurements][s] = decicelsius;
     }
 
-    if (n_measurements == 0)
+    ATOMIC_BLOCK(ATOMIC_RESTORESTATE)
     {
-        first_measurement_clock = clock_epoch;
+        if (n_measurements == 0)
+        {
+            first_measurement_clock = clock_epoch;
+        }
+        last_measurement_clock = clock_epoch;
     }
-    last_measurement_clock = clock_epoch;
 
     n_measurements++;
     //do_adc_335();
@@ -751,6 +764,10 @@ static void
 do_comms()
 {
     // turn on bluetooth
+    ATOMIC_BLOCK(ATOMIC_RESTORESTATE)
+    {
+        last_comms_clock = clock_epoch;
+    }
     set_aux_power(1);
     uart_on();
     
