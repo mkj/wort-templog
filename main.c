@@ -270,14 +270,14 @@ cmd_fetch()
         epoch_copy = clock_epoch;
     }
 
-    fprintf_P(crc_stdout, PSTR("START\n"));
-    fprintf_P(crc_stdout, PSTR("now=%lu\n"
+    fprintf_P(crc_stdout, PSTR("START\n"
+                                "now=%lu\n"
                                 "time_step=%hu\n"
                                 "first_time=%lu\n"
                                 "last_time=%lu\n"
                                 "comms_time=%lu\n"
                                 "voltage=%hu\n"
-                                "avrtemp=%hu\n"), 
+                                ), 
                                 epoch_copy, 
                                 (uint16_t)MEASURE_WAKE, 
                                 first_measurement_clock, 
@@ -628,87 +628,36 @@ adc_vcc()
     // left adjust
     ADMUX = _BV(ADLAR);
 
-    // ADPS2 = /16 prescaler, 62khz at 1mhz clock
+    // /128 prescaler
     ADCSRA = _BV(ADEN) | _BV(ADPS2);
 
     // set to measure 1.1 reference
     ADMUX = _BV(REFS0) | _BV(MUX3) | _BV(MUX2) | _BV(MUX1);
-    _delay_ms(30);
-    // try a few times so it can stabilise
-    for (uint16_t n = 0; n < 20; n++)
+    // average a number of samples
+    uint16_t sum = 0;
+    uint8_t num = 0;
+    for (uint8_t n = 0; n < 20; n++)
     {
         ADCSRA |= _BV(ADSC);
         loop_until_bit_is_clear(ADCSRA, ADSC);
+
+        uint8_t low_11 = ADCL;
+        uint8_t high_11 = ADCH;
+        uint16_t val = low_11 + (high_11 << 8);
+
+        if (n >= 4)
+        {
+            sum += val;
+            num++;
+        }
     }
-    uint8_t low_11 = ADCL;
-    uint8_t high_11 = ADCH;
-    uint16_t f_11 = low_11 + (high_11 << 8);
-
-    float res_volts = 1.1 * 1024 / f_11;
-
-    PRR |= _BV(PRADC);
     ADCSRA = 0;
+    PRR |= _BV(PRADC);
+
+    float res_volts = 1.1 * 1024 * num / sum;
 
     return 1000 * res_volts;
 }
-
-#if 0
-// untested
-static void 
-do_adc_335()
-{
-    //PRR &= ~_BV(PRADC);
-
-    ADMUX = _BV(ADLAR);
-
-    // ADPS2 = /16 prescaler, 62khz at 1mhz clock
-    ADCSRA = _BV(ADEN) | _BV(ADPS2);
-    
-    // measure value
-    ADCSRA |= _BV(ADSC);
-    loop_until_bit_is_clear(ADCSRA, ADSC);
-    uint8_t low = ADCL;
-    uint8_t high = ADCH;
-    uint16_t f_measure = low + (high << 8);
-
-    // set to measure 1.1 reference
-    ADMUX = _BV(ADLAR) | _BV(MUX3) | _BV(MUX2) | _BV(MUX1);
-    ADCSRA |= _BV(ADSC);
-    loop_until_bit_is_clear(ADCSRA, ADSC);
-    uint8_t low_11 = ADCL;
-    uint8_t high_11 = ADCH;
-    uint16_t f_11 = low_11 + (high_11 << 8);
-
-    float res_volts = 1.1 * f_measure / f_11;
-
-    // 10mV/degree
-    // scale to 1/5 degree units above 0C
-    int temp = (res_volts - 2.73) * 500;
-    // XXX fixme
-    //measurements[n_measurements] = temp;
-    // XXX something if it hits the limit
-
-    // measure AVR internal temperature against 1.1 ref.
-    ADMUX = _BV(ADLAR) | _BV(MUX3) | _BV(REFS1) | _BV(REFS0);
-    ADCSRA |= _BV(ADSC);
-    loop_until_bit_is_clear(ADCSRA, ADSC);
-    uint16_t res_internal = ADCL;
-    res_internal |= ADCH << 8;
-
-    float internal_volts = res_internal * (1.1 / 1024.0);
-
-    // 1mV/degree
-    int internal_temp = (internal_volts - 2.73) * 5000;
-    // XXX fixme
-    //internal_measurements[n_measurements] = internal_temp;
-
-    printf_P("measure %d: external %d, internal %d, 1.1 %d\n",
-            n_measurements, temp, internal_temp, f_11);
-
-    n_measurements++;
-    //PRR |= _BV(PRADC);
-}
-#endif
 
 static void
 do_measurement()
