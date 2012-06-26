@@ -625,10 +625,7 @@ adc_vcc()
 {
     PRR &= ~_BV(PRADC);
     
-    // left adjust
-    ADMUX = _BV(ADLAR);
-
-    // /128 prescaler
+    // /16 prescaler
     ADCSRA = _BV(ADEN) | _BV(ADPS2);
 
     // set to measure 1.1 reference
