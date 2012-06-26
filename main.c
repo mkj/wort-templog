@@ -612,9 +612,6 @@ adc_internal(uint16_t *millivolt_vcc, uint16_t *int_temp)
 {
     PRR &= ~_BV(PRADC);
     
-    // left adjust
-    ADMUX = _BV(ADLAR);
-
     // ADPS2 = /16 prescaler, 62khz at 1mhz clock
     ADCSRA = _BV(ADEN) | _BV(ADPS2);
 
