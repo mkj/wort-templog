@@ -10,6 +10,7 @@ import time
 import syslog
 import sqlite3
 import traceback
+import datetime
 from colorsys import hls_to_rgb
 
 import config
@@ -71,9 +72,20 @@ def graph_png(start, length):
         colour = config.SENSOR_COLOURS.get(legend, colour_from_string(sensor))
         graph_args.append('LINE%(width)f:%(vname)s#%(colour)s:%(legend)s' % locals())
 
+    end = int(start+length)
+    start = int(start)
+
     tempf = tempfile.NamedTemporaryFile()
-    args = [tempf.name, '-s', str(int(start)),
-        '-e', str(int(start+length)),
+    dateformat = '%H:%M:%S %Y-%m-%d'
+    watermark = ("Now %s\t"
+                "Start %s\t"
+                "End %s" % (
+                datetime.datetime.now().strftime(dateformat),
+                datetime.datetime.fromtimestamp(start).strftime(dateformat),
+                datetime.datetime.fromtimestamp(end).strftime(dateformat) ))
+
+    args = [tempf.name, '-s', str(start),
+        '-e', str(end),
         '-w', str(config.GRAPH_WIDTH),
         '-h', str(config.GRAPH_HEIGHT),
         '--slope-mode',
@@ -84,11 +96,13 @@ def graph_png(start, length):
         '--color', 'GRID#00000000',
         '--color', 'MGRID#aaaaaa',
         '--color', 'BACK#ffffff',
+        '--disable-rrdtool-tag',
         'VRULE:%d#ee0000' % time.time(),
+        '--watermark', watermark,
         '--imgformat', 'PNG'] \
         + graph_args
-    args += ['--font', 'DEFAULT:11:%s' % config.GRAPH_FONT]
-    args += ['--font', 'WATERMARK:6:%s' % config.GRAPH_FONT]
+    args += ['--font', 'DEFAULT:12:%s' % config.GRAPH_FONT]
+    args += ['--font', 'WATERMARK:10:%s' % config.GRAPH_FONT]
     if have_volts:
         args += ['--right-axis', '0.1:2', # matches the scalevolts CDEF above
             '--right-axis-format', '%.2lf',
