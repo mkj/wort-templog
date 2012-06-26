@@ -26,15 +26,18 @@ def create_rrd(sensor_id):
     # start date of 10 seconds into 1970 is used so that we can
     # update with prior values straight away.
     if 'voltage' in sensor_id:
-        args = [ 'DS:temp:GAUGE:7200:-1:10',
-                'RRA:AVERAGE:0.9999:1:1051200']
+        args = [ 
+                '--step', '3600',
+                'DS:temp:GAUGE:7200:1:10',
+                'RRA:AVERAGE:0.5:1:87600']
     else:
-        args = [ 'DS:temp:GAUGE:600:-10:100',
+        args = [
+                '--step', '300',
+                'DS:temp:GAUGE:600:-10:100',
                 'RRA:AVERAGE:0.5:1:1051200']
 
     rrdtool.create(sensor_rrd_path(sensor_id), 
-                '--start', '10',
-                '--step', '300',
+                '--start', 'now-60d',
                 *args)
 
 # stolen from viewmtn, stolen from monotone-viz
@@ -59,7 +62,7 @@ def graph_png(start, length):
             have_volts = True
             vname = 'scalevolts'
             graph_args = ['DEF:rawvolts=%(rrdfile)s:temp:AVERAGE:step=3600' % locals(),
-                        'CDEF:scalevolts=rawvolts,0.2,/'] + graph_args
+                        'CDEF:scalevolts=rawvolts,2,-,0.1,/'] + graph_args
         else:
             vname = 'temp%d' % n
             graph_args.append('DEF:%(vname)s=%(rrdfile)s:temp:AVERAGE' % locals())
@@ -84,10 +87,10 @@ def graph_png(start, length):
         'VRULE:%d#ee0000' % time.time(),
         '--imgformat', 'PNG'] \
         + graph_args
-    if config.GRAPH_FONT:
-        args += ['--font', 'DEFAULT:11:%s' % config.GRAPH_FONT]
+    args += ['--font', 'DEFAULT:11:%s' % config.GRAPH_FONT]
+    args += ['--font', 'WATERMARK:6:%s' % config.GRAPH_FONT]
     if have_volts:
-        args += ['--right-axis', '0.2:0', # matches the scalevolts CDEF above
+        args += ['--right-axis', '0.1:2', # matches the scalevolts CDEF above
             '--right-axis-format', '%.2lf',
             '--right-axis-label', 'Voltage']
 
@@ -110,7 +113,7 @@ def sensor_update(sensor_id, measurements, first_real_time, time_step):
         for v in values:
             try:
                 rrdtool.update(rrdfile, v)
-            except Exception, e:
+            except rrdtool.error, e:
                 print>>sys.stderr, "Bad rrdtool update '%s'" % v
                 traceback.print_exc(file=sys.stderr)
 
