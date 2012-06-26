@@ -99,6 +99,13 @@ def crc16(buff, crc = 0, poly = 0x8408):
     return crc
 
 def cheap_daemon():
+    print "Daemonising."
+    sys.stdout.flush()
+    sys.stderr.flush()
+    out = file('/dev/null', 'a+')
+    os.dup2(out.fileno(), sys.stdout.fileno())
+    os.dup2(out.fileno(), sys.stderr.fileno())
+
     try:
         pid = os.fork()
         if pid > 0:

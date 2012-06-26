@@ -25,6 +25,7 @@ import urllib2
 import config
 
 from utils import monotonic_time, retry, readline, crc16
+import utils
 
 lightblue = None
 try:
