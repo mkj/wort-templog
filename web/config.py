@@ -21,4 +21,4 @@ SENSOR_COLOURS = {'Wort': 'e49222',
                 }
 
 
-GRAPH_FONT = "Courier"
+GRAPH_FONT = "URW Gothic L"
