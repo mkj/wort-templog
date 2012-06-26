@@ -40,7 +40,7 @@ def graph():
             start_hour = datetime.datetime.now() - datetime.timedelta(days=1)
 
         start = time.mktime(start_hour.timetuple())
-        length = int(request.query.get('length', 36)) * 3600
+        length = int(request.query.get('length', 26)) * 3600
 
     response.set_header('Content-Type', 'image/png')
     return log.graph_png(start, length)
@@ -61,8 +61,9 @@ def test():
     return 'done'
 
 def main():
-    bottle.debug(True)
-    bottle.run(server='cgi')
+    #bottle.debug(True)
+    #bottle.run(reloader=True)
+    bottle.run(server='cgi', reloader=True)
     #bottle.run(port=9999, reloader=True)
 
 if __name__ == '__main__':
