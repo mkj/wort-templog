@@ -97,3 +97,24 @@ def crc16(buff, crc = 0, poly = 0x8408):
             uc += 1
         i += 1
     return crc
+
+def cheap_daemon():
+    try:
+        pid = os.fork()
+        if pid > 0:
+            sys.exit(0)
+    except OSError, e:
+        print>>sys.stderr, "Bad fork()"
+        sys.exit(1)
+
+    os.setsid()
+
+    try:
+        pid = os.fork()
+        if pid > 0:
+            sys.exit(0)
+    except OSError, e:
+        print>>sys.stderr, "Bad fork()"
+        sys.exit(1)
+
+

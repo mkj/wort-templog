@@ -172,6 +172,9 @@ def sleep_for(secs):
 def main():
     next_wake_time = 0
 
+    if '--daemon' in sys.argv:
+        utils.cheap_daemon()
+
     while True:
         sock = None
         try:
