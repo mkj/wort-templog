@@ -3,14 +3,19 @@
 import binascii
 import hmac
 import zlib
-import datetime
+from datetime import datetime, timedelta
 import time
+import urllib
+import sys
 
 import bottle
 from bottle import route, request, response
 
 import config
 import log
+
+DATE_FORMAT = '%Y%m%d-%H.%M'
+ZOOM_SCALE = 2.0
 
 @route('/update', method='post')
 def update():
@@ -28,26 +33,51 @@ def update():
 
 @route('/graph.png')
 def graph():
-    # url takes time in hours or days
-    if 'day' in request.query:
-        start_day = datetime.datetime.strptime(request.query.day, '%Y%m%d')
-        start = time.mktime(start_day.timetuple())
-        length = int(request.query.get('length', 5)) * 3600 * 24
-    else:
-        if 'hour' in request.query:
-            start_hour = datetime.datetime.strptime(request.query.hour, '%Y%m%d%H')
-        else:
-            start_hour = datetime.datetime.now() - datetime.timedelta(days=1)
-
-        start = time.mktime(start_hour.timetuple())
-        length = int(request.query.get('length', 26)) * 3600
+    length_minutes = int(request.query.length)
+    end = datetime.strptime(request.query.end, DATE_FORMAT)
+    start = end - timedelta(minutes=length_minutes)
 
     response.set_header('Content-Type', 'image/png')
-    return log.graph_png(start, length)
+    start_epoch = time.mktime(start.timetuple())
+    return log.graph_png(start_epoch, length_minutes * 60)
 
 @route('/')
 def top():
-    return bottle.template('top', urlparams=request.query_string)
+
+    minutes = int(request.query.get('length', 26*60))
+
+    if 'end' in request.query:
+        end = datetime.strptime(request.query.end, DATE_FORMAT)
+    else:
+        end = datetime.now()
+
+    if 'zoom' in request.query:
+        orig_start = end - timedelta(minutes=minutes)
+        orig_end = end
+        xpos = int(request.query.x)
+        xpos -= config.GRAPH_LEFT_MARGIN
+
+        if xpos >= 0 and xpos < config.GRAPH_WIDTH:
+            click_time = orig_start \
+                + timedelta(minutes=(float(xpos) / config.GRAPH_WIDTH) * minutes)
+            minutes = int(minutes / ZOOM_SCALE)
+
+            end = click_time + timedelta(minutes=minutes/2)
+        else:
+            # zoom out
+            minutes = int(minutes*ZOOM_SCALE)
+            end += timedelta(minutes=minutes/2)
+
+    if end > datetime.now():
+        end = datetime.now()
+        
+    request.query.replace('length', minutes)
+    request.query.replace('end', end.strftime(DATE_FORMAT))
+
+    urlparams = urllib.urlencode(request.query)
+    return bottle.template('top', urlparams=urlparams,
+                    end = end.strftime(DATE_FORMAT),
+                    length = minutes)
 
 @route('/test')
 def test():
