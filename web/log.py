@@ -97,7 +97,6 @@ def graph_png(start, length):
         '--color', 'MGRID#aaaaaa',
         '--color', 'BACK#ffffff',
         '--disable-rrdtool-tag',
-        'VRULE:%d#ee0000' % time.time(),
         '--watermark', watermark,
         '--imgformat', 'PNG'] \
         + graph_args
