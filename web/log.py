@@ -62,11 +62,11 @@ def graph_png(start, length):
         if 'voltage' in sensor:
             have_volts = True
             vname = 'scalevolts'
-            graph_args = ['DEF:rawvolts=%(rrdfile)s:temp:AVERAGE:step=3600' % locals(),
-                        'CDEF:scalevolts=rawvolts,2,-,0.1,/'] + graph_args
+            graph_args.append('DEF:%(vname)s=%(rrdfile)s:temp:AVERAGE:step=3600' % locals())
         else:
             vname = 'temp%d' % n
-            graph_args.append('DEF:%(vname)s=%(rrdfile)s:temp:AVERAGE' % locals())
+            graph_args.append('DEF:raw%(vname)s=%(rrdfile)s:temp:AVERAGE' % locals())
+            graph_args.append('CDEF:%(vname)s=raw%(vname)s,0.1,*,2,+' % locals())
         width = config.LINE_WIDTH
         legend = config.SENSOR_NAMES.get(sensor, sensor)
         colour = config.SENSOR_COLOURS.get(legend, colour_from_string(sensor))
@@ -90,8 +90,9 @@ def graph_png(start, length):
         '-h', str(config.GRAPH_HEIGHT),
         '--slope-mode',
         '--border', '0',
-        '--vertical-label', 'Temperature',
-        '--y-grid', '1:1',
+        '--vertical-label', 'Voltage',
+        '--y-grid', '0.1:1',
+        '--dynamic-labels',
         '--grid-dash', '1:0',
         '--color', 'GRID#00000000',
         '--color', 'MGRID#aaaaaa',
@@ -103,9 +104,9 @@ def graph_png(start, length):
     args += ['--font', 'DEFAULT:12:%s' % config.GRAPH_FONT]
     args += ['--font', 'WATERMARK:10:%s' % config.GRAPH_FONT]
     if have_volts:
-        args += ['--right-axis', '0.1:2', # matches the scalevolts CDEF above
+        args += ['--right-axis', '10:-20', # matches the scalevolts CDEF above
             '--right-axis-format', '%.2lf',
-            '--right-axis-label', 'Voltage']
+            '--right-axis-label', 'Temperature']
 
     rrdtool.graph(*args)
     return tempf.read()
