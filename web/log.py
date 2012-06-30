@@ -90,7 +90,7 @@ def graph_png(start, length):
         '-h', str(config.GRAPH_HEIGHT),
         '--slope-mode',
         '--border', '0',
-        '--vertical-label', 'Voltage',
+#        '--vertical-label', 'Voltage',
         '--y-grid', '0.1:1',
         '--dynamic-labels',
         '--grid-dash', '1:0',
@@ -105,8 +105,9 @@ def graph_png(start, length):
     args += ['--font', 'WATERMARK:10:%s' % config.GRAPH_FONT]
     if have_volts:
         args += ['--right-axis', '10:-20', # matches the scalevolts CDEF above
-            '--right-axis-format', '%.2lf',
-            '--right-axis-label', 'Temperature']
+            '--right-axis-format', '%.0lf',
+#            '--right-axis-label', 'Temperature'
+            ]
 
     rrdtool.graph(*args)
     return tempf.read()
