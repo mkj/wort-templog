@@ -25,4 +25,4 @@ GRAPH_FONT = "Prociono"
 #GRAPH_FONT = "URW Gothic L"
 
 # determine by zooming in an image viewer
-GRAPH_LEFT_MARGIN = 95
+GRAPH_LEFT_MARGIN = 63
