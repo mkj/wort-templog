@@ -1,5 +1,12 @@
 #!/usr/bin/env python
-import log
 import time
+import struct
+import sys
+import binascii
 
-log.sensor_update("test1", [22,22,22.1,22.4,22.5], time.time() - 10, 300)
+def convert_ds18b20_12bit(reading):
+    value = struct.unpack('>h', binascii.unhexlify(reading))[0]
+    return value * 0.0625
+
+if __name__ == '__main__':
+    print convert_ds18b20_12bit(sys.argv[1])

@@ -28,8 +28,8 @@
 // limited to uint16_t
 #define MEASURE_WAKE 60
 
-#define VALUE_NOSENSOR -9000
-#define VALUE_BROKEN -8000
+#define VALUE_NOSENSOR 0x07D0 // 125 degrees
+#define VALUE_BROKEN 0x07D1 // 125.0625
 
 // limited to uint16_t
 #define COMMS_WAKE 3600 // XXX testing
@@ -81,8 +81,8 @@ static uint16_t measure_count;
 
 static uint16_t n_measurements;
 
-// stored as decidegrees
-static int16_t measurements[NUM_MEASUREMENTS][MAX_SENSORS];
+// stored as 
+static uint16_t measurements[NUM_MEASUREMENTS][MAX_SENSORS];
 static uint32_t first_measurement_clock;
 // last_measurement_clock is redundant but checks that we're not missing
 // samples
@@ -300,7 +300,7 @@ cmd_fetch()
         fprintf_P(crc_stdout, PSTR("meas%hu="), n);
         for (uint8_t s = 0; s < n_sensors; s++)
         {
-            fprintf_P(crc_stdout, PSTR(" %hu"), measurements[n][s]);
+            fprintf_P(crc_stdout, PSTR(" %04hx"), measurements[n][s]);
         }
         fputc('\n', crc_stdout);
     }
@@ -662,6 +662,8 @@ do_measurement()
     uint8_t n_sensors;
     eeprom_read(n_sensors, n_sensors);
 
+    blink();
+
     simple_ds18b20_start_meas(NULL);
     // sleep rather than using a long delay
     deep_sleep();
@@ -674,23 +676,23 @@ do_measurement()
 
     for (uint8_t s = 0; s < MAX_SENSORS; s++)
     {
-        int16_t decicelsius;
+        uint16_t reading;
         if (s >= n_sensors)
         {
-            decicelsius = VALUE_NOSENSOR;
+            reading = VALUE_NOSENSOR;
         }
         else
         {
             uint8_t id[ID_LEN];
             eeprom_read_to(id, sensor_id[s], ID_LEN);
 
-            uint8_t ret = simple_ds18b20_read_decicelsius(id, &decicelsius);
+            uint8_t ret = simple_ds18b20_read_raw(id, &reading);
             if (ret != DS18X20_OK)
             {
-                decicelsius = VALUE_BROKEN;
+                reading = VALUE_BROKEN;
             }
         }
-        measurements[n_measurements][s] = decicelsius;
+        measurements[n_measurements][s] = reading;
     }
 
     ATOMIC_BLOCK(ATOMIC_RESTORESTATE)
@@ -816,10 +818,6 @@ int main(void)
         }
 
         deep_sleep();
-        if (clock_epoch % 60 == 0)
-        {
-            blink();
-        }
     }
 
     return 0;   /* never reached */

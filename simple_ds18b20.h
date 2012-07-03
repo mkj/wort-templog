@@ -9,6 +9,7 @@ uint8_t simple_ds18b20_start_meas(uint8_t id[]);
 void printhex(uint8_t *id, uint8_t n, FILE *stream);
 void printhex_byte( const unsigned char  b, FILE *stream );
 uint8_t simple_ds18b20_read_decicelsius( uint8_t id[], int16_t *decicelsius );
+uint8_t simple_ds18b20_read_raw( uint8_t id[], uint16_t *reading );
 uint8_t simple_ds18b20_read_all();
 
 #endif // SIMPLE_DS18B20_H_
