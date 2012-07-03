@@ -11,6 +11,7 @@ import syslog
 import sqlite3
 import traceback
 import datetime
+import struct
 from colorsys import hls_to_rgb
 
 import config
@@ -143,6 +144,10 @@ def record_debug(lines):
     f.flush()
     return f
 
+def convert_ds18b20_12bit(reading):
+    value = struct.unpack('>h', binascii.unhexlify(reading))[0]
+    return value * 0.0625
+
 def parse(lines):
    
     debugf = record_debug(lines)
@@ -159,10 +164,6 @@ def parse(lines):
     meas = []
     for s in sensors:
         meas.append([])
-
-    def val_scale(v):
-        # convert decidegrees to degrees
-        return 0.1 * v
 
     for n in xrange(num_measurements):
         vals = [val_scale(int(x)) for x in entries["meas%d" % n].strip().split()]

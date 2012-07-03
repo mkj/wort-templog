@@ -125,6 +125,23 @@ simple_ds18b20_read_decicelsius( uint8_t id[], int16_t *decicelsius )
 	return ret;
 }
 
+uint8_t 
+simple_ds18b20_read_raw( uint8_t id[], uint16_t *reading )
+{
+	uint8_t sp[DS18X20_SP_SIZE];
+	uint8_t ret;
+	
+	if (id)
+	{
+		ow_reset();
+	}
+	ret = read_scratchpad( id, sp, DS18X20_SP_SIZE );
+	if ( ret == DS18X20_OK ) {
+        *reading = sp[0] | (sp[1] << 8);
+	}
+	return ret;
+}
+
 static void 
 printhex_nibble(const unsigned char b, FILE *stream)
 {
