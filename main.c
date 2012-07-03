@@ -26,7 +26,7 @@
 // 1 second. we have 1024 prescaler, 32768 crystal.
 #define SLEEP_COMPARE 32
 // limited to uint16_t
-#define MEASURE_WAKE 60
+#define MEASURE_WAKE 140
 
 #define VALUE_NOSENSOR 0x07D0 // 125 degrees
 #define VALUE_BROKEN 0x07D1 // 125.0625
@@ -34,7 +34,7 @@
 // limited to uint16_t
 #define COMMS_WAKE 3600 // XXX testing
 // limited to uint8_t
-#define WAKE_SECS 60 // XXX testing
+#define WAKE_SECS 30 // XXX testing
 
 #define BAUD 19200
 #define UBRR ((F_CPU)/8/(BAUD)-1)
@@ -102,6 +102,8 @@ static uint8_t readpos;
 static char readbuf[30];
 static uint8_t have_cmd;
 
+uint8_t n_sensors;
+uint8_t sensor_id[MAX_SENSORS][ID_LEN];
 
 // thanks to http://projectgus.com/2010/07/eeprom-access-with-arduino/
 #define eeprom_read_to(dst_p, eeprom_field, dst_size) eeprom_read_block((dst_p), (void *)offsetof(struct __eeprom_data, eeprom_field), (dst_size))
@@ -112,9 +114,8 @@ static uint8_t have_cmd;
 #define EXPECT_MAGIC 0x67c9
 
 struct __attribute__ ((__packed__)) __eeprom_data {
+    // XXX eeprom unused at present
     uint16_t magic;
-    uint8_t n_sensors;
-    uint8_t sensor_id[MAX_SENSORS][ID_LEN];
 };
 
 #define DEBUG(str) printf_P(PSTR(str))
@@ -259,9 +260,6 @@ static void
 cmd_fetch()
 {
     crc_out = 0;
-    uint8_t n_sensors;
-    eeprom_read(n_sensors, n_sensors);
-
     uint16_t millivolt_vcc = adc_vcc();
 
     uint32_t epoch_copy;
@@ -288,10 +286,8 @@ cmd_fetch()
     fprintf_P(crc_stdout, PSTR("sensors=%u\n"), n_sensors);
     for (uint8_t s = 0; s < n_sensors; s++)
     {
-        uint8_t id[ID_LEN];
         fprintf_P(crc_stdout, PSTR("sensor_id%u="), s);
-        eeprom_read_to(id, sensor_id[s], ID_LEN);
-        printhex(id, ID_LEN, crc_stdout);
+        printhex(sensor_id[s], ID_LEN, crc_stdout);
         fputc('\n', crc_stdout);
     }
     fprintf_P(crc_stdout, PSTR("measurements=%hu\n"), n_measurements);
@@ -325,13 +321,6 @@ cmd_btoff()
     printf_P(PSTR("off:%hu\n"), COMMS_WAKE);
     _delay_ms(100);
     comms_timeout = 0;
-}
-
-static void
-cmd_awake()
-{
-    comms_timeout = WAKE_SECS;
-    printf_P(PSTR("awake %hu\n"), WAKE_SECS);
 }
 
 static void
@@ -417,32 +406,10 @@ get_hex_string(const char *hex, uint8_t *out, uint8_t size)
 #endif
 
 static void
-add_sensor(uint8_t *id)
-{
-    uint8_t n;
-    eeprom_read(n, n_sensors);
-    if (n < MAX_SENSORS)
-    {
-        cli();
-        eeprom_write_from(id, sensor_id[n], ID_LEN);
-        n++;
-        eeprom_write(n, n_sensors);
-        sei();
-        printf_P(PSTR("Added sensor %d : "), n);
-        printhex(id, ID_LEN, stdout);
-        putchar('\n');
-    }
-    else
-    {
-        printf_P(PSTR("Too many sensors\n"));
-    }
-}
-
-static void
-cmd_add_all()
+init_sensors()
 {
     uint8_t id[OW_ROMCODE_SIZE];
-    printf_P("Adding all\n");
+    printf_P(PSTR("init sensors\n"));
     ow_reset();
     for( uint8_t diff = OW_SEARCH_FIRST; diff != OW_LAST_DEVICE; )
     {
@@ -456,24 +423,26 @@ cmd_add_all()
             printf_P( PSTR("Bus Error\r") );
             return;
         }
-        add_sensor(id);
-    }
-}
 
-static void
-cmd_init()
-{
-    printf_P(PSTR("Resetting sensor list\n"));
-    uint8_t zero = 0;
-    cli();
-    eeprom_write(zero, n_sensors);
-    sei();
-    printf_P(PSTR("Done.\n"));
+        if (n_sensors < MAX_SENSORS)
+        {
+            memcpy(sensor_id[n_sensors], id, ID_LEN);
+            printf_P(PSTR("Added sensor %d : "), n_sensors);
+            printhex(id, ID_LEN, stdout);
+            putchar('\n');
+            n_sensors++;
+        }
+        else
+        {
+            printf_P(PSTR("Too many sensors\n"));
+        }
+    }
 }
 
 static void
 check_first_startup()
 {
+#if 0
     uint16_t magic;
     eeprom_read(magic, magic);
     if (magic != EXPECT_MAGIC)
@@ -488,6 +457,7 @@ check_first_startup()
         eeprom_write(magic, magic);
         sei();
     }
+#endif
 }
 
 static void
@@ -512,18 +482,6 @@ read_handler()
     else if (strcmp_P(readbuf, PSTR("sensors")) == 0)
     {
         cmd_sensors();
-    }
-    else if (strcmp_P(readbuf, PSTR("addall"))== 0)
-    {
-        cmd_add_all();
-    }
-    else if (strcmp_P(readbuf, PSTR("awake"))== 0)
-    {
-        cmd_awake();
-    }
-    else if (strcmp_P(readbuf, PSTR("init")) == 0)
-    {
-        cmd_init();
     }
     else if (strcmp_P(readbuf, PSTR("reset")) == 0)
     {
@@ -659,9 +617,6 @@ adc_vcc()
 static void
 do_measurement()
 {
-    uint8_t n_sensors;
-    eeprom_read(n_sensors, n_sensors);
-
     blink();
 
     simple_ds18b20_start_meas(NULL);
@@ -683,10 +638,7 @@ do_measurement()
         }
         else
         {
-            uint8_t id[ID_LEN];
-            eeprom_read_to(id, sensor_id[s], ID_LEN);
-
-            uint8_t ret = simple_ds18b20_read_raw(id, &reading);
+            uint8_t ret = simple_ds18b20_read_raw(sensor_id[s], &reading);
             if (ret != DS18X20_OK)
             {
                 reading = VALUE_BROKEN;
@@ -733,6 +685,7 @@ do_comms()
         if (have_cmd)
         {
             have_cmd = 0;
+            comms_timeout = WAKE_SECS;
             read_handler();
             continue;
         }
@@ -785,6 +738,8 @@ int main(void)
     printf(PSTR("Started.\n"));
 
     check_first_startup();
+
+    init_sensors();
 
     uart_off();
 
