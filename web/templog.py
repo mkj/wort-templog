@@ -55,11 +55,11 @@ def top():
         orig_start = end - timedelta(minutes=minutes)
         orig_end = end
         xpos = int(request.query.x)
-        xpos -= config.GRAPH_LEFT_MARGIN
+        xpos -= config.GRAPH_LEFT_MARGIN * config.ZOOM
 
-        if xpos >= 0 and xpos < config.GRAPH_WIDTH:
+        if xpos >= 0 and xpos < config.GRAPH_WIDTH * config.ZOOM:
             click_time = orig_start \
-                + timedelta(minutes=(float(xpos) / config.GRAPH_WIDTH) * minutes)
+                + timedelta(minutes=(float(xpos) / (config.GRAPH_WIDTH * config.ZOOM)) * minutes)
             minutes = int(minutes / ZOOM_SCALE)
 
             end = click_time + timedelta(minutes=minutes/2)

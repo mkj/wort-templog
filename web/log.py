@@ -12,6 +12,7 @@ import sqlite3
 import traceback
 import datetime
 import struct
+import binascii
 from colorsys import hls_to_rgb
 
 import config
@@ -95,6 +96,7 @@ def graph_png(start, length):
         '--y-grid', '0.1:1',
         '--dynamic-labels',
         '--grid-dash', '1:0',
+        '--zoom', str(config.ZOOM),
         '--color', 'GRID#00000000',
         '--color', 'MGRID#aaaaaa',
         '--color', 'BACK#ffffff',
@@ -166,7 +168,7 @@ def parse(lines):
         meas.append([])
 
     for n in xrange(num_measurements):
-        vals = [val_scale(int(x)) for x in entries["meas%d" % n].strip().split()]
+        vals = [convert_ds18b20_12bit(x) for x in entries["meas%d" % n].strip().split()]
         if len(vals) != num_sensors:
             raise Exception("Wrong number of sensors for measurement %d" % n)
         # we make an array of values for each sensor
