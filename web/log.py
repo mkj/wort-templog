@@ -1,3 +1,4 @@
+# -*- coding: utf-8 -*-
 #:vim:et:ts=4:sts=4:sw=4:
 import rrdtool
 import os
@@ -65,14 +66,20 @@ def graph_png(start, length):
             have_volts = True
             vname = 'scalevolts'
             graph_args.append('DEF:%(vname)s=%(rrdfile)s:temp:AVERAGE:step=3600' % locals())
+            unit = 'V'
         else:
             vname = 'temp%d' % n
             graph_args.append('DEF:raw%(vname)s=%(rrdfile)s:temp:AVERAGE' % locals())
             graph_args.append('CDEF:%(vname)s=raw%(vname)s,0.1,*,2,+' % locals())
+            unit = '<span face="Liberation Serif">º</span>C'
+
+        last_value = float(rrdtool.info(rrdfile)['ds[temp].last_ds'])
         width = config.LINE_WIDTH
         legend = config.SENSOR_NAMES.get(sensor, sensor)
         colour = config.SENSOR_COLOURS.get(legend, colour_from_string(sensor))
-        graph_args.append('LINE%(width)f:%(vname)s#%(colour)s:%(legend)s' % locals())
+        format_last_value = ('%f' % last_value).rstrip('0') + unit
+        print_legend = '%s (%s)' % (legend, format_last_value)
+        graph_args.append('LINE%(width)f:%(vname)s#%(colour)s:%(print_legend)s' % locals())
 
     end = int(start+length)
     start = int(start)
@@ -101,6 +108,7 @@ def graph_png(start, length):
         '--color', 'MGRID#aaaaaa',
         '--color', 'BACK#ffffff',
         '--disable-rrdtool-tag',
+        '--pango-markup',
         '--watermark', watermark,
         '--imgformat', 'PNG'] \
         + graph_args
