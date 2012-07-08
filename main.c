@@ -685,7 +685,6 @@ do_comms()
         if (have_cmd)
         {
             have_cmd = 0;
-            comms_timeout = WAKE_SECS;
             read_handler();
             continue;
         }
