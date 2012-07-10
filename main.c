@@ -23,18 +23,15 @@
 // - bluetooth params
 // - number of sensors (and range?)
 
-// 1 second. we have 1024 prescaler, 32768 crystal.
-#define SLEEP_COMPARE 32
-// limited to uint16_t
-#define MEASURE_WAKE 140
+// TICK should be 8 or less (8 untested). all timers need
+// to be a multiple.
+
+#define TICK 6
+// we have 1024 prescaler, 32768 crystal.
+#define SLEEP_COMPARE (32*TICK-1)
 
 #define VALUE_NOSENSOR 0x07D0 // 125 degrees
 #define VALUE_BROKEN 0x07D1 // 125.0625
-
-// limited to uint16_t
-#define COMMS_WAKE 3600 // XXX testing
-// limited to uint8_t
-#define WAKE_SECS 30 // XXX testing
 
 #define BAUD 19200
 #define UBRR ((F_CPU)/8/(BAUD)-1)
@@ -47,31 +44,23 @@
 #define DDR_SHDN DDRD
 #define PIN_SHDN PD7
 
-// limited to uint16_t
-// XXX - increasing this to 300 causes strange failures, 
-// not sure why
-#define NUM_MEASUREMENTS 280
-// limited to uint8_t
-#define MAX_SENSORS 3
+// total amount of 16bit values available for measurements.
+// adjust emperically, be sure to allow enough stack space too
+#define TOTAL_MEASUREMENTS 840
+
+// each sensor slot uses 8 bytes
+#define MAX_SENSORS 6
 
 // fixed at 8, have a shorter name
 #define ID_LEN OW_ROMCODE_SIZE
 
 // #define HAVE_UART_ECHO
 
-int uart_putchar(char c, FILE *stream);
-static void long_delay(int ms);
-static void blink();
-static uint16_t adc_vcc();
-
-static FILE mystdout = FDEV_SETUP_STREAM(uart_putchar, NULL,
-        _FDEV_SETUP_WRITE);
-
-uint16_t crc_out;
-static FILE _crc_stdout = FDEV_SETUP_STREAM(uart_putchar, NULL,
-        _FDEV_SETUP_WRITE);
-// convenience
-static FILE *crc_stdout = &_crc_stdout;
+// eeprom-settable parameters. all timeouts should
+// be a multiple of TICK (6 seconds probably)
+static uint16_t measure_wake = 120;
+static uint16_t comms_wake = 3600;
+static uint8_t wake_secs = 30;
 
 // ---- Atomic guards required accessing these variables
 static uint32_t clock_epoch;
@@ -81,8 +70,10 @@ static uint16_t measure_count;
 
 static uint16_t n_measurements;
 
-// stored as 
-static uint16_t measurements[NUM_MEASUREMENTS][MAX_SENSORS];
+// calculated at startup as TOTAL_MEASUREMENTS/n_sensors
+static uint16_t max_measurements;
+
+static uint16_t measurements[TOTAL_MEASUREMENTS];
 static uint32_t first_measurement_clock;
 // last_measurement_clock is redundant but checks that we're not missing
 // samples
@@ -94,6 +85,7 @@ static uint32_t last_comms_clock;
 static uint8_t need_measurement;
 static uint8_t need_comms;
 static uint8_t uart_enabled;
+static uint8_t stay_awake;
 
 // counts down from WAKE_SECS to 0, goes to deep sleep when hits 0
 static uint8_t comms_timeout;
@@ -102,8 +94,24 @@ static uint8_t readpos;
 static char readbuf[30];
 static uint8_t have_cmd;
 
-uint8_t n_sensors;
-uint8_t sensor_id[MAX_SENSORS][ID_LEN];
+static uint8_t n_sensors;
+static uint8_t sensor_id[MAX_SENSORS][ID_LEN];
+
+
+int uart_putchar(char c, FILE *stream);
+static void long_delay(int ms);
+static void blink();
+static uint16_t adc_vcc();
+
+static FILE mystdout = FDEV_SETUP_STREAM(uart_putchar, NULL,
+        _FDEV_SETUP_WRITE);
+
+static uint16_t crc_out;
+static FILE _crc_stdout = FDEV_SETUP_STREAM(uart_putchar, NULL,
+        _FDEV_SETUP_WRITE);
+// convenience
+static FILE *crc_stdout = &_crc_stdout;
+
 
 // thanks to http://projectgus.com/2010/07/eeprom-access-with-arduino/
 #define eeprom_read_to(dst_p, eeprom_field, dst_size) eeprom_read_block((dst_p), (void *)offsetof(struct __eeprom_data, eeprom_field), (dst_size))
@@ -116,9 +124,10 @@ uint8_t sensor_id[MAX_SENSORS][ID_LEN];
 struct __attribute__ ((__packed__)) __eeprom_data {
     // XXX eeprom unused at present
     uint16_t magic;
+    uint16_t measure_wake;
+    uint16_t comms_wake;
+    uint8_t wake_secs;
 };
-
-#define DEBUG(str) printf_P(PSTR(str))
 
 static void deep_sleep();
 
@@ -175,6 +184,18 @@ set_aux_power(uint8_t on)
     {
         PORT_SHDN |= _BV(PIN_SHDN);
     }
+}
+
+static void 
+set_measurement(uint8_t sensor, uint16_t measurement, uint16_t reading)
+{
+    measurements[sensor*max_measurements + measurement] = reading;
+}
+
+static uint16_t 
+get_measurement(uint8_t sensor, uint16_t measurement)
+{
+    return measurements[sensor*max_measurements + measurement];
 }
 
 static void
@@ -277,7 +298,7 @@ cmd_fetch()
                                 "voltage=%hu\n"
                                 ), 
                                 epoch_copy, 
-                                (uint16_t)MEASURE_WAKE, 
+                                measure_wake,
                                 first_measurement_clock, 
                                 last_measurement_clock,
                                 last_comms_clock,
@@ -296,7 +317,7 @@ cmd_fetch()
         fprintf_P(crc_stdout, PSTR("meas%hu="), n);
         for (uint8_t s = 0; s < n_sensors; s++)
         {
-            fprintf_P(crc_stdout, PSTR(" %04hx"), measurements[n][s]);
+            fprintf_P(crc_stdout, PSTR(" %04hx"), get_measurement(s, n));
         }
         fputc('\n', crc_stdout);
     }
@@ -318,7 +339,7 @@ cmd_btoff()
     {
         comms_count = 0;
     }
-    printf_P(PSTR("off:%hu\n"), COMMS_WAKE);
+    printf_P(PSTR("off:%hu\n"), comms_wake);
     _delay_ms(100);
     comms_timeout = 0;
 }
@@ -348,62 +369,6 @@ cmd_sensors()
     long_delay(DS18B20_TCONV_12BIT);
     simple_ds18b20_read_all();
 }
-
-#if 0
-// 0 on success
-static uint8_t
-get_hex_string(const char *hex, uint8_t *out, uint8_t size)
-{
-    uint8_t upper;
-    uint8_t o;
-    for (uint8_t i = 0, z = 0; o < size; i++)
-    {
-        uint8_t h = hex[i];
-        if (h >= 'A' && h <= 'F')
-        {
-            // lower case
-            h += 0x20;
-        }
-        uint8_t nibble;
-        if (h >= '0' && h <= '9')
-        {
-            nibble = h - '0';
-        }
-        else if (h >= 'a' && h <= 'f')
-        {
-            nibble = 10 + h - 'a';
-        }
-        else if (h == ' ' || h == ':')
-        {
-            continue;
-        }
-        else
-        {
-            printf_P(PSTR("Bad hex 0x%x '%c'\n"), hex[i], hex[i]);
-            return 1;
-        }
-
-        if (z % 2 == 0)
-        {
-            upper = nibble << 4;
-        }
-        else
-        {
-            out[o] = upper | nibble;
-            o++;
-        }
-
-        z++;
-    }
-
-    if (o != size)
-    {
-        printf_P(PSTR("Short hex\n"));
-        return 1;
-    }
-    return 0;
-}
-#endif
 
 static void
 init_sensors()
@@ -437,27 +402,65 @@ init_sensors()
             printf_P(PSTR("Too many sensors\n"));
         }
     }
+
+    max_measurements = TOTAL_MEASUREMENTS / n_sensors;
 }
 
 static void
-check_first_startup()
+load_params()
 {
-#if 0
     uint16_t magic;
     eeprom_read(magic, magic);
-    if (magic != EXPECT_MAGIC)
+    if (magic == EXPECT_MAGIC)
     {
-        printf_P(PSTR("First boot, looking for sensors...\n"));
-        // in case of power fumbles don't want to reset during eeprom write,
-        long_delay(2);
-        cmd_init();
-        cmd_add_all();
+        eeprom_read(measure_wake, measure_wake);
+        eeprom_read(comms_wake, comms_wake);
+        eeprom_read(wake_secs, wake_secs);
+    }
+}
+
+static void
+cmd_get_params()
+{
+    printf_P(PSTR("measure %hu comms %hu wake %u tick %d sensors %u (%u) meas %hu (%hu)\n"),
+            measure_wake, comms_wake, wake_secs, TICK, 
+            n_sensors, MAX_SENSORS, 
+            max_measurements, TOTAL_MEASUREMENTS);
+}
+
+static void
+cmd_set_params(const char *params)
+{
+    uint16_t new_measure_wake;
+    uint16_t new_comms_wake;
+    uint8_t new_wake_secs;
+    int ret = sscanf_P(params, PSTR("%hu %hu %u"),
+            &new_measure_wake, &new_comms_wake, &new_wake_secs);
+
+    if (ret != 3)
+    {
+        printf_P(PSTR("Bad values\n"));
+    }
+    else
+    {
         cli();
-        magic = EXPECT_MAGIC;
+        eeprom_write(new_measure_wake, measure_wake);
+        eeprom_write(new_comms_wake, comms_wake);
+        eeprom_write(new_wake_secs, wake_secs);
+        uint16_t magic = EXPECT_MAGIC;
         eeprom_write(magic, magic);
         sei();
+        printf_P(PSTR("set_params for next boot\n"));
+        printf_P(PSTR("measure %hu comms %hu wake %u\n"),
+                new_measure_wake, new_comms_wake, new_wake_secs);
     }
-#endif
+}
+
+static void
+cmd_awake()
+{
+    stay_awake = 1;
+    printf_P(PSTR("awake\n"));
 }
 
 static void
@@ -483,6 +486,19 @@ read_handler()
     {
         cmd_sensors();
     }
+    else if (strcmp_P(readbuf, PSTR("get_params")) == 0)
+    {
+        cmd_get_params();
+    }
+    else if (strncmp_P(readbuf, PSTR("set_params "), 
+                strlen("set_params ") == 0))
+    {
+        cmd_set_params(&readbuf[strlen("set_params ")]);
+    }
+    else if (strcmp_P(readbuf, PSTR("awake")) == 0)
+    {
+        cmd_awake();
+    }
     else if (strcmp_P(readbuf, PSTR("reset")) == 0)
     {
         cmd_reset();
@@ -496,7 +512,7 @@ read_handler()
 ISR(INT0_vect)
 {
     need_comms = 1;
-    comms_timeout = WAKE_SECS;
+    comms_timeout = wake_secs;
     blink();
     _delay_ms(100);
     blink();
@@ -532,23 +548,23 @@ ISR(USART_RX_vect)
 ISR(TIMER2_COMPA_vect)
 {
     TCNT2 = 0;
-    measure_count ++;
-    comms_count ++;
+    measure_count += TICK;
+    comms_count += TICK;
 
-    clock_epoch ++;
+    clock_epoch += TICK;
 
     if (comms_timeout != 0)
     {
-        comms_timeout--;
+        comms_timeout -= TICK;
     }
 
-    if (measure_count >= MEASURE_WAKE)
+    if (measure_count >= measure_wake)
     {
         measure_count = 0;
         need_measurement = 1;
     }
 
-    if (comms_count >= COMMS_WAKE)
+    if (comms_count >= comms_wake)
     {
         comms_count = 0;
         need_comms = 1;
@@ -609,9 +625,9 @@ adc_vcc()
     ADCSRA = 0;
     PRR |= _BV(PRADC);
 
-    float res_volts = 1.1 * 1024 * num / sum;
-
-    return 1000 * res_volts;
+    //float res_volts = 1.1 * 1024 * num / sum;
+    //return 1000 * res_volts;
+    return ((uint32_t)1100*1024*num) / sum;
 }
 
 static void
@@ -624,27 +640,20 @@ do_measurement()
     deep_sleep();
     //_delay_ms(DS18B20_TCONV_12BIT);
 
-    if (n_measurements == NUM_MEASUREMENTS)
+    if (n_measurements == max_measurements)
     {
         n_measurements = 0;
     }
 
-    for (uint8_t s = 0; s < MAX_SENSORS; s++)
+    for (uint8_t s = 0; s < n_sensors; s++)
     {
         uint16_t reading;
-        if (s >= n_sensors)
+        uint8_t ret = simple_ds18b20_read_raw(sensor_id[s], &reading);
+        if (ret != DS18X20_OK)
         {
-            reading = VALUE_NOSENSOR;
+            reading = VALUE_BROKEN;
         }
-        else
-        {
-            uint8_t ret = simple_ds18b20_read_raw(sensor_id[s], &reading);
-            if (ret != DS18X20_OK)
-            {
-                reading = VALUE_BROKEN;
-            }
-        }
-        measurements[n_measurements][s] = reading;
+        set_measurement(s, n_measurements, reading);
     }
 
     ATOMIC_BLOCK(ATOMIC_RESTORESTATE)
@@ -673,7 +682,9 @@ do_comms()
     
     // write sd card here? same 3.3v regulator...
     
-    for (comms_timeout = WAKE_SECS; comms_timeout > 0;  )
+    for (comms_timeout = wake_secs; 
+        comms_timeout > 0 || stay_awake;  
+        )
     {
         if (need_measurement)
         {
@@ -736,7 +747,7 @@ int main(void)
 
     printf(PSTR("Started.\n"));
 
-    check_first_startup();
+    load_params();
 
     init_sensors();
 
