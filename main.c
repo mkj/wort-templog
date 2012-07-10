@@ -281,33 +281,25 @@ static void
 cmd_fetch()
 {
     crc_out = 0;
-    uint16_t millivolt_vcc = adc_vcc();
 
-    uint32_t epoch_copy;
-    ATOMIC_BLOCK(ATOMIC_RESTORESTATE)
+    fprintf_P(crc_stdout, PSTR("START\n"));
     {
-        epoch_copy = clock_epoch;
+        uint32_t epoch_copy;
+        ATOMIC_BLOCK(ATOMIC_RESTORESTATE)
+        {
+            epoch_copy = clock_epoch;
+        }
+        fprintf_P(crc_stdout, PSTR("now=%lu\n"), epoch_copy);
     }
-
-    fprintf_P(crc_stdout, PSTR("START\n"
-                                "now=%lu\n"
-                                "time_step=%hu\n"
-                                "first_time=%lu\n"
-                                "last_time=%lu\n"
-                                "comms_time=%lu\n"
-                                "voltage=%hu\n"
-                                ), 
-                                epoch_copy, 
-                                measure_wake,
-                                first_measurement_clock, 
-                                last_measurement_clock,
-                                last_comms_clock,
-                                millivolt_vcc
-                                );
-    fprintf_P(crc_stdout, PSTR("sensors=%u\n"), n_sensors);
+    fprintf_P(crc_stdout, PSTR("time_step=%hu\n"), measure_wake);
+    fprintf_P(crc_stdout, PSTR("first_time=%lu\n"), first_measurement_clock);
+    fprintf_P(crc_stdout, PSTR("last_time=%lu\n"),  last_measurement_clock);
+    fprintf_P(crc_stdout, PSTR("comms_time=%lu\n"), last_comms_clock);
+    fprintf_P(crc_stdout, PSTR("voltage=%hu\n"), adc_vcc());
+    fprintf_P(crc_stdout, PSTR("sensors=%hhu\n"), n_sensors);
     for (uint8_t s = 0; s < n_sensors; s++)
     {
-        fprintf_P(crc_stdout, PSTR("sensor_id%u="), s);
+        fprintf_P(crc_stdout, PSTR("sensor_id%hhu="), s);
         printhex(sensor_id[s], ID_LEN, crc_stdout);
         fputc('\n', crc_stdout);
     }
@@ -365,7 +357,7 @@ static void
 cmd_sensors()
 {
     uint8_t ret = simple_ds18b20_start_meas(NULL);
-    printf_P(PSTR("All sensors, ret %d, waiting...\n"), ret);
+    printf_P(PSTR("All sensors, ret %hhu, waiting...\n"), ret);
     long_delay(DS18B20_TCONV_12BIT);
     simple_ds18b20_read_all();
 }
@@ -392,7 +384,7 @@ init_sensors()
         if (n_sensors < MAX_SENSORS)
         {
             memcpy(sensor_id[n_sensors], id, ID_LEN);
-            printf_P(PSTR("Added sensor %d : "), n_sensors);
+            printf_P(PSTR("Added sensor %hhu : "), n_sensors);
             printhex(id, ID_LEN, stdout);
             putchar('\n');
             n_sensors++;
@@ -422,9 +414,13 @@ load_params()
 static void
 cmd_get_params()
 {
-    printf_P(PSTR("measure %hu comms %hu wake %u tick %d sensors %u (%u) meas %hu (%hu)\n"),
-            measure_wake, comms_wake, wake_secs, TICK, 
-            n_sensors, MAX_SENSORS, 
+    printf_P(PSTR("measure %hu\n"), measure_wake);
+    printf_P(PSTR("comms %hu\n"), comms_wake);
+    printf_P(PSTR("wake %hhu\n"), wake_secs);
+    printf_P(PSTR("tick %d\n"), TICK);
+    printf_P(PSTR("sensors %hhu (%hhu)\n"), 
+            n_sensors, MAX_SENSORS);
+    printf_P(PSTR("meas %hu (%hu)\n"),
             max_measurements, TOTAL_MEASUREMENTS);
 }
 
@@ -434,7 +430,7 @@ cmd_set_params(const char *params)
     uint16_t new_measure_wake;
     uint16_t new_comms_wake;
     uint8_t new_wake_secs;
-    int ret = sscanf_P(params, PSTR("%hu %hu %u"),
+    int ret = sscanf_P(params, PSTR("%hu %hu %hhu"),
             &new_measure_wake, &new_comms_wake, &new_wake_secs);
 
     if (ret != 3)
@@ -451,7 +447,7 @@ cmd_set_params(const char *params)
         eeprom_write(magic, magic);
         sei();
         printf_P(PSTR("set_params for next boot\n"));
-        printf_P(PSTR("measure %hu comms %hu wake %u\n"),
+        printf_P(PSTR("measure %hu comms %hu wake %hhu\n"),
                 new_measure_wake, new_comms_wake, new_wake_secs);
     }
 }
