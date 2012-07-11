@@ -5,7 +5,7 @@ SLEEP_TIME = 5
 
 DATA_PATH = '/home/matt/templog/web/data'
 
-HMAC_KEY = 'a hmac key'
+HMAC_KEY = 'a hmac key' # override in local config file
 
 UPDATE_URL = 'https://evil.ucc.asn.au/~matt/templog/update'
 
@@ -33,3 +33,12 @@ GRAPH_FONT = "Prociono"
 
 # determine by zooming in an image viewer
 GRAPH_LEFT_MARGIN = 63
+
+try:
+    import localconfig
+    g = globals()
+    for k in dir(other):
+        if k in g:
+            g[k] = other.__dict__[k]
+except ImportError:
+    pass

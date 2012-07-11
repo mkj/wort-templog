@@ -486,10 +486,9 @@ read_handler()
     {
         cmd_get_params();
     }
-    else if (strncmp_P(readbuf, PSTR("set_params "), 
-                strlen("set_params ") == 0))
+    else if (strncmp_P(readbuf, PSTR("set_params "), 11) == 0)
     {
-        cmd_set_params(&readbuf[strlen("set_params ")]);
+        cmd_set_params(&readbuf[11]);
     }
     else if (strcmp_P(readbuf, PSTR("awake")) == 0)
     {
@@ -501,7 +500,7 @@ read_handler()
     }
     else
     {
-        printf_P(PSTR("Bad command\n"));
+        printf_P(PSTR("Bad command '%s'\n"), readbuf);
     }
 }
 
