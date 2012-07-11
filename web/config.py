@@ -37,8 +37,8 @@ GRAPH_LEFT_MARGIN = 63
 try:
     import localconfig
     g = globals()
-    for k in dir(other):
+    for k in dir(localconfig):
         if k in g:
-            g[k] = other.__dict__[k]
+            g[k] = localconfig.__dict__[k]
 except ImportError:
     pass
