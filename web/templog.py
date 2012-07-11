@@ -23,7 +23,7 @@ def update():
     mac = request.forms.hmac
 
     if hmac.new(config.HMAC_KEY, enc_lines).hexdigest() != mac:
-        raise HTTPError(code = 403, output = "Bad key")
+        raise bottle.HTTPError(code = 403, output = "Bad key")
 
     lines = zlib.decompress(binascii.a2b_base64(enc_lines)).split('\n')
 
