@@ -141,7 +141,7 @@ def do_comms(sock):
     args = sys.argv[1:]
     print "do_comms"
     for a in args:
-        sock.send('%s\n', a)
+        sock.send('%s\n' % a)
 
     while True:
         l = readline(sock)
