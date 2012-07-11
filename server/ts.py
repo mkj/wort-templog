@@ -1,7 +1,5 @@
 #!/usr/bin/env python2.7
 
-BTADDR = "00:12:03:27:70:88"
-SLEEP_TIME = 5
 # time that the bluetooth takes to get going?
 EXTRA_WAKEUP = 0
 
@@ -179,11 +177,11 @@ def main():
     while True:
         sock = None
         try:
-            sock = get_socket(BTADDR)
+            sock = get_socket(config.BTADDR)
         except Exception, e:
             print>>sys.stderr, "Error connecting:"
             traceback.print_exc(file=sys.stderr)
-        sleep_time = SLEEP_TIME
+        sleep_time = config.SLEEP_TIME
         if sock:
             next_wake = None
             try:
