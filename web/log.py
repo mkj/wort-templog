@@ -37,7 +37,7 @@ def create_rrd(sensor_id):
     else:
         args = [
                 '--step', '300',
-                'DS:temp:GAUGE:600:-10:100',
+                'DS:temp:GAUGE:600:-100:500',
                 'RRA:AVERAGE:0.5:1:1051200']
 
     rrdtool.create(sensor_rrd_path(sensor_id), 
