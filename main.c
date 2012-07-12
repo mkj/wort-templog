@@ -296,6 +296,12 @@ cmd_fetch()
     fprintf_P(crc_stdout, PSTR("last_time=%lu\n"),  last_measurement_clock);
     fprintf_P(crc_stdout, PSTR("comms_time=%lu\n"), last_comms_clock);
     fprintf_P(crc_stdout, PSTR("voltage=%hu\n"), adc_vcc());
+    fprintf_P(crc_stdout, PSTR("measure=%hu\n"), measure_wake);
+    fprintf_P(crc_stdout, PSTR("comms=%hu\n"), comms_wake);
+    fprintf_P(crc_stdout, PSTR("wake=%hhu\n"), wake_secs);
+    fprintf_P(crc_stdout, PSTR("tick=%d\n"), TICK);
+    fprintf_P(crc_stdout, PSTR("maxsens=%hhu\n"), MAX_SENSORS);
+    fprintf_P(crc_stdout, PSTR("totalmeas=%hu\n"), TOTAL_MEASUREMENTS);
     fprintf_P(crc_stdout, PSTR("sensors=%hhu\n"), n_sensors);
     for (uint8_t s = 0; s < n_sensors; s++)
     {
