@@ -238,7 +238,7 @@ uart_on()
 static void 
 uart_off()
 {
-    // Turn of interrupts and disable tx/rx
+    // Turn off interrupts and disable tx/rx
     UCSR0B = 0;
     uart_enabled = 0;
 
@@ -679,6 +679,8 @@ do_comms()
         last_comms_clock = clock_epoch;
     }
     set_aux_power(1);
+    // avoid receiving rubbish, perhaps
+    _delay_ms(50);
     uart_on();
     
     // write sd card here? same 3.3v regulator...

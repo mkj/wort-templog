@@ -19,35 +19,29 @@ import hmac
 import zlib
 import urllib
 import urllib2
+import logging
+
+L = logging.info
+W = logging.warning
+E = logging.error
 
 import config
 
 from utils import monotonic_time, retry, readline, crc16
 import utils
 
-lightblue = None
-try:
-    import lightblue
-except ImportError:
-    import bluetooth
+import bluetooth
 
 def get_socket(addr):
-    if lightblue:
-        s = lightblue.socket()
-        s.connect((addr, 1))
-        s.settimeout(3)
-    else:
-        s = bluetooth.BluetoothSocket( bluetooth.RFCOMM )
-        s.connect((addr, 1))
-
-    s.setblocking(False)
+    s = bluetooth.BluetoothSocket( bluetooth.RFCOMM )
+    s.settimeout(1)
+    s.connect((addr, 1))
 
     return s
 
 
 @retry()
 def fetch(sock):
-    print "fetch"
     sock.send("fetch\n")
 
     crc = 0
@@ -55,7 +49,7 @@ def fetch(sock):
     lines = []
     l = readline(sock)
     if l != 'START\n':
-        print>>sys.stderr, "Bad expected START line '%s'\n" % l.rstrip('\n')
+        W("Bad expected START line '%s'\n" % l.rstrip('\n'))
         return None
     crc = crc16(l, crc)
 
@@ -69,13 +63,13 @@ def fetch(sock):
 
         lines.append(l.rstrip('\n'))
 
-    print lines
-
+    for d in lines:
+        L("Received: %s" % d)
+        
     l = readline(sock)
     recv_crc = None
     try:
         k, v = l.rstrip('\n').split('=')
-        print k,v
         if k == 'CRC':
             recv_crc = int(v)
         if recv_crc < 0 or recv_crc > 0xffff:
@@ -84,11 +78,11 @@ def fetch(sock):
         pass
 
     if recv_crc is None:
-        print>>sys.stderr, "Bad expected CRC line '%s'\n" % l.rstrip('\n')
+        W("Bad expected CRC line '%s'\n" % l.rstrip('\n'))
         return None
 
     if recv_crc != crc:
-        print>>sys.stderr, "Bad CRC: calculated 0x%x vs received 0x%x\n" % (crc, recv_crc)
+        W("Bad CRC: calculated 0x%x vs received 0x%x\n" % (crc, recv_crc))
         return None
 
     return lines
@@ -97,19 +91,19 @@ def fetch(sock):
 def turn_off(sock):
     if TESTING:
         return 99
-    print>>sys.stderr, "sending btoff"
+    L("Sending btoff")
     sock.send("btoff\n");
     # read newline
     l = readline(sock)
     if not l:
-        print>>sys.stderr, "Bad response to btoff\n"
+        W("Bad response to btoff")
         return None
 
     if not l.startswith('off:'):
-        print>>sys.stderr, "Bad response to btoff '%s'\n" % l
+        W("Bad response to btoff '%s'" % l)
         return None
     off, next_wake = l.rstrip().split(':')
-    print>>sys.stderr, "Next wake %s" % next_wake
+    L("Next wake %s" % next_wake)
 
     return int(next_wake)
 
@@ -120,7 +114,7 @@ def clear_meas(sock):
     if l and l.rstrip() == 'cleared':
         return True
 
-    print>>sys.stderr, "Bad response to clear %s\n" % str(l)
+    E("Bad response to clear '%s'" % str(l))
     return False
 
 def send_results(lines):
@@ -133,18 +127,14 @@ def send_results(lines):
     if result == 'OK':
         return True
     else:
-        print>>sys.stderr, "Bad result '%s'" % result
+        W("Bad result '%s'" % result)
         return False
 
 def do_comms(sock):
-    print "do_comms"
+    L("do_comms")
     d = None
     # serial could be unreliable, try a few times
-    for i in range(FETCH_TRIES):
-        d = fetch(sock)
-        if d:
-            break
-        time.sleep(1)
+    d = fetch(sock)
     if not d:
         return
 
@@ -168,8 +158,14 @@ def sleep_for(secs):
             return
         time.sleep(length)
 
+def setup_logging():
+    logging.basicConfig(format='%(asctime)s %(message)s', 
+            datefmt='%m/%d/%Y %I:%M:%S %p')
+
 def main():
-    next_wake_time = 0
+    setup_logging()
+
+    L("Running templog rfcomm server")
 
     if '--daemon' in sys.argv:
         utils.cheap_daemon()
@@ -179,21 +175,22 @@ def main():
         try:
             sock = get_socket(config.BTADDR)
         except Exception, e:
-            print>>sys.stderr, "Error connecting:"
-            traceback.print_exc(file=sys.stderr)
-        sleep_time = config.SLEEP_TIME
+            pass
+            #print>>sys.stderr, "Error connecting:"
+            #traceback.print_exc(file=sys.stderr)
+        next_wake_time = 0
         if sock:
-            next_wake = None
             try:
-                next_wake_interval = do_comms(sock)
-                next_wake_time = time.time() + next_wake_interval
+                avr_wake = do_comms(sock)
+                next_wake_time = time.time() + avr_wake
             except Exception, e:
-                print>>sys.stderr, "Error in do_comms:"
-                traceback.print_exc(file=sys.stderr)
-            if next_wake_time > time.time():
-                sleep_time = min(next_wake_time - time.time() - EXTRA_WAKEUP, sleep_time)
+                logging.exception("Error in do_comms")
 
-        print "Sleeping for %d" % sleep_time
+        next_wake_interval = next_wake_time - time.time() - EXTRA_WAKEUP
+        sleep_time = config.SLEEP_TIME
+        if next_wake_interval > 0:
+            sleep_time = min(next_wake_interval, sleep_time)
+        L("Sleeping for %d, next wake time %f" % (sleep_time, next_wake_time))
         sleep_for(sleep_time)
 
 if __name__ == '__main__':
