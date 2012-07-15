@@ -3,15 +3,14 @@ import sys
 #import ctypes
 import time
 import select
+import logging
 
-lightblue = None
-try:
-    import lightblue
-except ImportError:
-    pass
+L = logging.info
+W = logging.warning
+E = logging.error
 
 DEFAULT_TRIES = 3
-READLINE_SELECT_TIMEOUT = 4
+READLINE_SELECT_TIMEOUT = 1
 
 __all__ = ('monotonic_time', 'retry')
 
@@ -34,7 +33,7 @@ def monotonic_time():
             clock_gettime = librt.clock_gettime
             clock_gettime.argtypes = [ctypes.c_int, ctypes.POINTER(timespec)]
         except:
-            print>>sys.stderr, "No clock_gettime(), using fake fallback."
+            W("No clock_gettime(), using fake fallback.")
             no_clock_gettime = True
             return time.time()
         
@@ -53,9 +52,11 @@ def retry(retries=DEFAULT_TRIES, try_time = 1):
         def new_f(*args, **kwargs):
             for i in range(retries):
                 d = func(*args, **kwargs)
-                if d:
+                if d is not None:
                     return d
                 time.sleep(try_time)
+            return None
+
         new_f.func_name = func.func_name
         return new_f
     return inner
@@ -64,11 +65,10 @@ def readline(sock):
     timeout = READLINE_SELECT_TIMEOUT
     buf = ''
     while True:
-        if not lightblue:
-            (rlist, wlist, xlist) = select.select([sock], [], [], timeout)
-            if sock not in rlist:
-                # hit timeout
-                return None
+        (rlist, wlist, xlist) = select.select([sock], [], [], timeout)
+        if sock not in rlist:
+            # hit timeout
+            return None
 
         c = sock.recv(1)
         if c == '':
@@ -99,7 +99,7 @@ def crc16(buff, crc = 0, poly = 0x8408):
     return crc
 
 def cheap_daemon():
-    print "Daemonising."
+    L("Daemonising.")
     sys.stdout.flush()
     sys.stderr.flush()
     out = file('/dev/null', 'a+')
@@ -111,7 +111,7 @@ def cheap_daemon():
         if pid > 0:
             sys.exit(0)
     except OSError, e:
-        print>>sys.stderr, "Bad fork()"
+        E("Bad fork()")
         sys.exit(1)
 
     os.setsid()
@@ -121,7 +121,7 @@ def cheap_daemon():
         if pid > 0:
             sys.exit(0)
     except OSError, e:
-        print>>sys.stderr, "Bad fork()"
+        E("Bad fork()")
         sys.exit(1)
 
 

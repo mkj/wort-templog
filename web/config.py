@@ -7,7 +7,7 @@ DATA_PATH = '/home/matt/templog/web/data'
 
 HMAC_KEY = 'a hmac key' # override in local config file
 
-UPDATE_URL = 'https://evil.ucc.asn.au/~matt/templog/update'
+UPDATE_URL = 'http://evil.ucc.asn.au/~matt/templog/update'
 
 GRAPH_WIDTH = 1200
 GRAPH_HEIGHT = 600
