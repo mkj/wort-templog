@@ -355,12 +355,14 @@ cmd_clear()
 static void
 cmd_btoff()
 {
+    uint8_t rem;
+    uint16_t count_copy;
     ATOMIC_BLOCK(ATOMIC_RESTORESTATE)
     {
-        comms_count = 0;
+        count_copy = comms_count;
+        rem = TCNT2;
     }
-    uint8_t rem = TCNT2;
-    printf_P(PSTR("next_wake=%hu,"), comms_wake);
+    printf_P(PSTR("next_wake=%hu,"), comms_wake-count_copy);
     printf_P(PSTR("rem=%hhu,"), rem);
     printf_P(PSTR("tick_secs=%hhu,"), TICK);
     printf_P(PSTR("tick_wake=%hhu\n"), SLEEP_COMPARE);
