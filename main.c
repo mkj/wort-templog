@@ -67,7 +67,7 @@ struct epoch_ticks
 
 // eeprom-settable parameters. all timeouts should
 // be a multiple of TICK (6 seconds probably)
-static uint16_t measure_wake = 120;
+static uint16_t measure_wake = 138; // not a divisor of comms_wake
 static uint16_t comms_wake = 3600;
 static uint8_t wake_secs = 30;
 
@@ -797,12 +797,6 @@ int main(void)
             need_comms = 1;
             comms_timeout = wake_secs;
             button_pressed = 0;
-        }
-
-        if (need_measurement)
-        {
-            need_measurement = 0;
-            do_measurement();
             continue;
         }
 
@@ -810,6 +804,13 @@ int main(void)
         {
             need_comms = 0;
             do_comms();
+            continue;
+        }
+
+        if (need_measurement)
+        {
+            need_measurement = 0;
+            do_measurement();
             continue;
         }
 
