@@ -56,6 +56,15 @@
 
 // #define HAVE_UART_ECHO
 
+// stores a value of clock_epoch combined with the remainder of TCNT2,
+// for 1/32 second accuracy
+struct epoch_ticks
+{
+    uint32_t ticks;
+    // remainder
+    uint8_t rem;
+};
+
 // eeprom-settable parameters. all timeouts should
 // be a multiple of TICK (6 seconds probably)
 static uint16_t measure_wake = 120;
@@ -74,18 +83,19 @@ static uint16_t n_measurements;
 static uint16_t max_measurements;
 
 static uint16_t measurements[TOTAL_MEASUREMENTS];
-static uint32_t first_measurement_clock;
+
+static struct epoch_ticks first_measurement_clock;
 // last_measurement_clock is redundant but checks that we're not missing
 // samples
-static uint32_t last_measurement_clock;
-
-static uint32_t last_comms_clock;
+static struct epoch_ticks last_measurement_clock;
+static struct epoch_ticks last_comms_clock;
 
 // boolean flags
 static uint8_t need_measurement;
 static uint8_t need_comms;
 static uint8_t uart_enabled;
 static uint8_t stay_awake;
+static uint8_t button_pressed;
 
 // counts down from WAKE_SECS to 0, goes to deep sleep when hits 0
 static uint8_t comms_timeout;
@@ -183,6 +193,16 @@ set_aux_power(uint8_t on)
     else
     {
         PORT_SHDN |= _BV(PIN_SHDN);
+    }
+}
+
+static void
+get_epoch_ticks(struct epoch_ticks *t)
+{
+    ATOMIC_BLOCK(ATOMIC_RESTORESTATE)
+    {
+        t->ticks = clock_epoch;
+        t->rem = TCNT2;
     }
 }
 
@@ -284,22 +304,24 @@ cmd_fetch()
 
     fprintf_P(crc_stdout, PSTR("START\n"));
     {
-        uint32_t epoch_copy;
-        ATOMIC_BLOCK(ATOMIC_RESTORESTATE)
-        {
-            epoch_copy = clock_epoch;
-        }
-        fprintf_P(crc_stdout, PSTR("now=%lu\n"), epoch_copy);
+        struct epoch_ticks now;
+        get_epoch_ticks(&now);
+        fprintf_P(crc_stdout, PSTR("now=%lu\n"), now.ticks);
+        fprintf_P(crc_stdout, PSTR("now_rem=%hhu\n"), now.rem);
     }
     fprintf_P(crc_stdout, PSTR("time_step=%hu\n"), measure_wake);
-    fprintf_P(crc_stdout, PSTR("first_time=%lu\n"), first_measurement_clock);
-    fprintf_P(crc_stdout, PSTR("last_time=%lu\n"),  last_measurement_clock);
-    fprintf_P(crc_stdout, PSTR("comms_time=%lu\n"), last_comms_clock);
+    fprintf_P(crc_stdout, PSTR("first_time=%lu\n"), first_measurement_clock.ticks);
+    fprintf_P(crc_stdout, PSTR("first_time_rem=%hhu\n"), first_measurement_clock.rem);
+    fprintf_P(crc_stdout, PSTR("last_time=%lu\n"),  last_measurement_clock.ticks);
+    fprintf_P(crc_stdout, PSTR("last_time_rem=%hhu\n"),  last_measurement_clock.rem);
+    fprintf_P(crc_stdout, PSTR("comms_time=%lu\n"), last_comms_clock.ticks);
+    fprintf_P(crc_stdout, PSTR("comms_time_rem=%hhu\n"), last_comms_clock.rem);
     fprintf_P(crc_stdout, PSTR("voltage=%hu\n"), adc_vcc());
     fprintf_P(crc_stdout, PSTR("measure=%hu\n"), measure_wake);
     fprintf_P(crc_stdout, PSTR("comms=%hu\n"), comms_wake);
     fprintf_P(crc_stdout, PSTR("wake=%hhu\n"), wake_secs);
-    fprintf_P(crc_stdout, PSTR("tick=%d\n"), TICK);
+    fprintf_P(crc_stdout, PSTR("tick_secs=%d\n"), TICK);
+    fprintf_P(crc_stdout, PSTR("tick_wake=%d\n"), SLEEP_COMPARE);
     fprintf_P(crc_stdout, PSTR("maxsens=%hhu\n"), MAX_SENSORS);
     fprintf_P(crc_stdout, PSTR("totalmeas=%hu\n"), TOTAL_MEASUREMENTS);
     fprintf_P(crc_stdout, PSTR("sensors=%hhu\n"), n_sensors);
@@ -337,7 +359,11 @@ cmd_btoff()
     {
         comms_count = 0;
     }
-    printf_P(PSTR("off:%hu\n"), comms_wake);
+    uint8_t rem = TCNT2;
+    printf_P(PSTR("next_wake=%hu,"), comms_wake);
+    printf_P(PSTR("rem=%hhu,"), rem);
+    printf_P(PSTR("tick_secs=%hhu,"), TICK);
+    printf_P(PSTR("tick_wake=%hhu\n"), SLEEP_COMPARE);
     _delay_ms(100);
     comms_timeout = 0;
 }
@@ -512,8 +538,7 @@ read_handler()
 
 ISR(INT0_vect)
 {
-    need_comms = 1;
-    comms_timeout = wake_secs;
+    button_pressed = 1;
     blink();
     _delay_ms(100);
     blink();
@@ -636,6 +661,13 @@ do_measurement()
 {
     blink();
 
+    /* Take the timer here since deep_sleep() below could take 6 seconds */
+    get_epoch_ticks(&last_measurement_clock);
+    if (n_measurements == 0)
+    {
+        first_measurement_clock = last_measurement_clock;
+    }
+
     simple_ds18b20_start_meas(NULL);
     // sleep rather than using a long delay
     deep_sleep();
@@ -657,27 +689,15 @@ do_measurement()
         set_measurement(s, n_measurements, reading);
     }
 
-    ATOMIC_BLOCK(ATOMIC_RESTORESTATE)
-    {
-        if (n_measurements == 0)
-        {
-            first_measurement_clock = clock_epoch;
-        }
-        last_measurement_clock = clock_epoch;
-    }
-
     n_measurements++;
-    //do_adc_335();
 }
 
 static void
 do_comms()
 {
+    get_epoch_ticks(&last_comms_clock);
+
     // turn on bluetooth
-    ATOMIC_BLOCK(ATOMIC_RESTORESTATE)
-    {
-        last_comms_clock = clock_epoch;
-    }
     set_aux_power(1);
     // avoid receiving rubbish, perhaps
     _delay_ms(50);
@@ -759,9 +779,6 @@ int main(void)
     // turn off everything except timer2
     PRR = _BV(PRTWI) | _BV(PRTIM0) | _BV(PRTIM1) | _BV(PRSPI) | _BV(PRUSART0) | _BV(PRADC);
 
-    // for testing
-    uart_on();
-
     setup_tick_counter();
 
     sei();
@@ -771,6 +788,15 @@ int main(void)
 
     for(;;)
     {
+        if (button_pressed)
+        {
+            // debounce
+            _delay_ms(200);
+            need_comms = 1;
+            comms_timeout = wake_secs;
+            button_pressed = 0;
+        }
+
         if (need_measurement)
         {
             need_measurement = 0;
