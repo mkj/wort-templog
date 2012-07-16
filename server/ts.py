@@ -34,9 +34,9 @@ import bluetooth
 
 def get_socket(addr):
     s = bluetooth.BluetoothSocket( bluetooth.RFCOMM )
-    s.settimeout(1)
     s.connect((addr, 1))
-
+    s.setblocking(False)
+            
     return s
 
 
@@ -99,13 +99,14 @@ def turn_off(sock):
         W("Bad response to btoff")
         return None
 
-    if not l.startswith('off:'):
+    if not l.startswith('next_wake'):
         W("Bad response to btoff '%s'" % l)
         return None
-    off, next_wake = l.rstrip().split(':')
-    L("Next wake %s" % next_wake)
+    L("Next wake line %s" % l)
 
-    return int(next_wake)
+    toks = dict(v.split('=') for v in l.split(','))
+
+    return int(toks['next_wake'])
 
 @retry()
 def clear_meas(sock):
@@ -160,7 +161,8 @@ def sleep_for(secs):
 
 def setup_logging():
     logging.basicConfig(format='%(asctime)s %(message)s', 
-            datefmt='%m/%d/%Y %I:%M:%S %p')
+            datefmt='%m/%d/%Y %I:%M:%S %p',
+            level=logging.INFO)
 
 def main():
     setup_logging()
@@ -175,9 +177,8 @@ def main():
         try:
             sock = get_socket(config.BTADDR)
         except Exception, e:
+            logging.exception("Error connecting")
             pass
-            #print>>sys.stderr, "Error connecting:"
-            #traceback.print_exc(file=sys.stderr)
         next_wake_time = 0
         if sock:
             try:
