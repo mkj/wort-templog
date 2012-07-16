@@ -186,7 +186,7 @@ def main():
         try:
             sock = get_socket(config.BTADDR)
         except Exception, e:
-            logging.exception("Error connecting")
+            #logging.exception("Error connecting")
             pass
         next_wake_time = 0
         if sock:
