@@ -106,7 +106,16 @@ def turn_off(sock):
 
     toks = dict(v.split('=') for v in l.split(','))
 
-    return int(toks['next_wake'])
+    rem = int(toks['rem'])
+    tick_secs = int(toks['tick_secs'])
+    tick_secs = int(toks['tick_wake'])
+    next_wake = int(toks['next_wake'])
+
+    rem_secs = float(rem) / tick_wake * tick_secs
+
+    next_wake_secs = next_wake - rem_secs
+    L("next_wake_secs %f\n", next_wake_secs)
+    return next_wake_secs
 
 @retry()
 def clear_meas(sock):
