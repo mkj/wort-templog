@@ -158,6 +158,13 @@ def convert_ds18b20_12bit(reading):
     value = struct.unpack('>h', binascii.unhexlify(reading))[0]
     return value * 0.0625
 
+def time_rem(name, entries):
+    val_ticks = int(entries[name])
+    val_rem = int(entries[name])
+    tick_wake = int(entries['tick_wake'])
+    tick_secs = int(entries['tick_secs'])
+    return val_ticks + float(val_rem) * tick_secs / tick_wake
+
 def parse(lines):
    
     debugf = record_debug(lines)
@@ -183,9 +190,13 @@ def parse(lines):
         for s in xrange(num_sensors):
             meas[s].append(vals[s])
 
-    avr_now = float(entries['now'])
-    avr_first_time = float(entries['first_time'])
+    avr_now = time_rem('now', entries)
+    avr_first_time = time_rem('first_time', entries)
+    avr_comms_time = time_rem('comms_time', entries)
     time_step = float(entries['time_step'])
+
+    debugf.write('now %f, comms_time %f, first_time %f, delta %f\n' %
+            (avr_now, avr_comms_time, avr_first_time, avr_now - avr_comms_time))
 
     if 'avrtemp' in entries:
         avrtemp = val_scale(int(entries['avrtemp']))
