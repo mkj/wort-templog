@@ -1,7 +1,7 @@
 #!/usr/bin/env python2.7
 
 # time that the bluetooth takes to get going?
-EXTRA_WAKEUP = 0
+EXTRA_WAKEUP = -3
 
 FETCH_TRIES = 3
 
@@ -34,8 +34,10 @@ import bluetooth
 
 def get_socket(addr):
     s = bluetooth.BluetoothSocket( bluetooth.RFCOMM )
+    L("connecting")
     s.connect((addr, 1))
     s.setblocking(False)
+    s.settimeout(1)
             
     return s
 
@@ -49,7 +51,7 @@ def fetch(sock):
     lines = []
     l = readline(sock)
     if l != 'START\n':
-        W("Bad expected START line '%s'\n" % l.rstrip('\n'))
+        W("Bad expected START line '%s'\n" % str(l).rstrip('\n'))
         return None
     crc = crc16(l, crc)
 
@@ -108,7 +110,7 @@ def turn_off(sock):
 
     rem = int(toks['rem'])
     tick_secs = int(toks['tick_secs'])
-    tick_secs = int(toks['tick_wake'])
+    tick_wake = int(toks['tick_wake'])
     next_wake = int(toks['next_wake'])
 
     rem_secs = float(rem) / tick_wake * tick_secs
@@ -181,6 +183,7 @@ def main():
     if '--daemon' in sys.argv:
         utils.cheap_daemon()
 
+    next_wake_time = 0
     while True:
         sock = None
         try:
@@ -188,7 +191,6 @@ def main():
         except Exception, e:
             #logging.exception("Error connecting")
             pass
-        next_wake_time = 0
         if sock:
             try:
                 avr_wake = do_comms(sock)
@@ -196,11 +198,14 @@ def main():
             except Exception, e:
                 logging.exception("Error in do_comms")
 
-        next_wake_interval = next_wake_time - time.time() - EXTRA_WAKEUP
+        next_wake_interval = next_wake_time - time.time() + EXTRA_WAKEUP
         sleep_time = config.SLEEP_TIME
         if next_wake_interval > 0:
             sleep_time = min(next_wake_interval, sleep_time)
-        L("Sleeping for %d, next wake time %f" % (sleep_time, next_wake_time))
+        if next_wake_interval < 0 and next_wake_interval > -30:
+            L("not sleeping, next_wake_interval overdue %f" % next_wake_interval)
+            continue
+        L("Sleeping for %d, next wake interval %f" % (sleep_time, next_wake_interval))
         sleep_for(sleep_time)
 
 if __name__ == '__main__':

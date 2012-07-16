@@ -1,4 +1,3 @@
-
 # for server
 BTADDR = "00:12:03:27:70:88"
 SLEEP_TIME = 5
