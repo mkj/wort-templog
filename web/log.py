@@ -161,7 +161,7 @@ def convert_ds18b20_12bit(reading):
 def time_rem(name, entries):
     val_ticks = int(entries[name])
     val_rem = int(entries['%s_rem' % name])
-    tick_wake = int(entries['tick_wake'])
+    tick_wake = int(entries['tick_wake']) + 1
     tick_secs = int(entries['tick_secs'])
     return val_ticks + float(val_rem) * tick_secs / tick_wake
 

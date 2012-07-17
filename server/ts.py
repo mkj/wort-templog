@@ -110,7 +110,7 @@ def turn_off(sock):
 
     rem = int(toks['rem'])
     tick_secs = int(toks['tick_secs'])
-    tick_wake = int(toks['tick_wake'])
+    tick_wake = int(toks['tick_wake']) + 1
     next_wake = int(toks['next_wake'])
 
     rem_secs = float(rem) / tick_wake * tick_secs
