@@ -70,7 +70,8 @@ def graph_png(start, length):
         else:
             vname = 'temp%d' % n
             graph_args.append('DEF:raw%(vname)s=%(rrdfile)s:temp:AVERAGE' % locals())
-            graph_args.append('CDEF:%(vname)s=raw%(vname)s,0.1,*,2,+' % locals())
+            # limit max temp to 50
+            graph_args.append('CDEF:%(vname)s=raw%(vname)s,35,GT,UNKN,raw%(vname)s,0.1,*,2,+,IF' % locals())
             unit = '<span face="Liberation Serif">º</span>C'
 
         last_value = float(rrdtool.info(rrdfile)['ds[temp].last_ds'])
