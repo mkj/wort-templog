@@ -148,12 +148,23 @@ def sensor_update(sensor_id, measurements, first_real_time, time_step):
         f = file(rrdfile)
         os.fsync(f.fileno())
 
+def debug_file(mode='r'):
+    return open('%s/debug.log' % config.DATA_PATH, mode)
+
 def record_debug(lines):
-    f = open('%s/debug.log' % config.DATA_PATH, 'a+')
+    f = debug_file('a+')
     f.write('===== %s =====\n' % time.strftime('%a, %d %b %Y %H:%M:%S'))
     f.writelines(('%s\n' % s for s in lines))
     f.flush()
     return f
+
+
+def tail_debug_log():
+    f = debug_file()
+    f.seek(0, 2)
+    size = f.tell()
+    f.seek(max(0, size-30000))
+    return '\n'.join(l.strip() for l in f.readlines()[-400:])
 
 def convert_ds18b20_12bit(reading):
     value = struct.unpack('>h', binascii.unhexlify(reading))[0]
