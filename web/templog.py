@@ -79,16 +79,10 @@ def top():
                     end = end.strftime(DATE_FORMAT),
                     length = minutes)
 
-@route('/test')
-def test():
-    import config
-    import os
-    f = open('%s/testout' % config.DATA_PATH, 'a+')
-    f.write("more")
-    f.flush()
-    f.close()
-
-    return 'done'
+@route('/debug')
+def debuglog():
+    response.set_header('Content-Type', 'text/plain')
+    return log.tail_debug_log()
 
 def main():
     #bottle.debug(True)
