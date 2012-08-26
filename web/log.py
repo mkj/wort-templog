@@ -55,6 +55,8 @@ def colour_from_string(str):
     return ''.join(["%.2x" % int(x * 256) for x in hls_to_rgb(hue, li, sat)])
 
 def graph_png(start, length):
+    os.environ['MATT_PNG_BODGE_COMPRESS'] = '4'
+    os.environ['MATT_PNG_BODGE_FILTER'] = 'paeth'
     rrds = all_sensors()
 
     graph_args = []
@@ -121,7 +123,9 @@ def graph_png(start, length):
 #            '--right-axis-label', 'Temperature'
             ]
 
+	print>>sys.stderr, ' '.join("'%s'" % s for s in args)
     rrdtool.graph(*args)
+    #return tempf
     return tempf.read()
 
 def sensor_update(sensor_id, measurements, first_real_time, time_step):
@@ -141,12 +145,12 @@ def sensor_update(sensor_id, measurements, first_real_time, time_step):
             try:
                 rrdtool.update(rrdfile, v)
             except rrdtool.error, e:
-                print>>sys.stderr, "Bad rrdtool update '%s'" % v
+                print>>sys.stderr, "Bad rrdtool update '%s': %s" % (v, str(e))
                 traceback.print_exc(file=sys.stderr)
 
         # be paranoid
-        f = file(rrdfile)
-        os.fsync(f.fileno())
+        #f = file(rrdfile)
+        #os.fsync(f.fileno())
 
 def debug_file(mode='r'):
     return open('%s/debug.log' % config.DATA_PATH, mode)
@@ -178,6 +182,8 @@ def time_rem(name, entries):
     return val_ticks + float(val_rem) * tick_secs / tick_wake
 
 def parse(lines):
+
+    start_time = time.time()
    
     debugf = record_debug(lines)
 
@@ -229,5 +235,6 @@ def parse(lines):
         # XXX sqlite add
         sensor_update(sensor_id, measurements, first_real_time, time_step)
 
-    debugf.write("Updated %d sensors\n" % len(sensors))
+    timedelta = time.time() - start_time
+    debugf.write("Updated %d sensors in %.2f secs\n" % (len(sensors), timedelta))
     debugf.flush()
