@@ -11,9 +11,6 @@
 #include <util/atomic.h>
 #include <util/crc16.h>
 
-// for DWORD of get_fattime()
-#include "integer.h"
-
 #include "simple_ds18b20.h"
 #include "onewire.h"
 
@@ -597,11 +594,6 @@ ISR(TIMER2_COMPA_vect)
         comms_count = 0;
         need_comms = 1;
     }
-}
-
-DWORD get_fattime (void)
-{
-    return 0;
 }
 
 static void
