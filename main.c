@@ -68,10 +68,13 @@ static uint16_t measure_wake = 138; // not a divisor of comms_wake
 static uint16_t comms_wake = 3600;
 static uint8_t wake_secs = 30;
 
+
 // ---- Atomic guards required accessing these variables
 static uint32_t clock_epoch;
 static uint16_t comms_count;
 static uint16_t measure_count;
+// decidegrees
+static uint16_t fridge_temp = 175;
 // ---- End atomic guards required
 
 static uint16_t n_measurements;
@@ -129,11 +132,14 @@ static FILE *crc_stdout = &_crc_stdout;
 #define EXPECT_MAGIC 0x67c9
 
 struct __attribute__ ((__packed__)) __eeprom_data {
-    // XXX eeprom unused at present
     uint16_t magic;
     uint16_t measure_wake;
     uint16_t comms_wake;
     uint8_t wake_secs;
+
+    uint16_t fridge_temp;
+
+
 };
 
 static void deep_sleep();
@@ -481,6 +487,32 @@ cmd_set_params(const char *params)
         printf_P(PSTR("measure %hu comms %hu wake %hhu\n"),
                 new_measure_wake, new_comms_wake, new_wake_secs);
     }
+}static void
+cmd_set_fridge(const char *params)
+{
+    uint16_t new_measure_wake;
+    uint16_t new_comms_wake;
+    uint8_t new_wake_secs;
+    int ret = sscanf_P(params, PSTR("%hu %hu %hhu"),
+            &new_measure_wake, &new_comms_wake, &new_wake_secs);
+
+    if (ret != 3)
+    {
+        printf_P(PSTR("Bad values\n"));
+    }
+    else
+    {
+        cli();
+        eeprom_write(new_measure_wake, measure_wake);
+        eeprom_write(new_comms_wake, comms_wake);
+        eeprom_write(new_wake_secs, wake_secs);
+        uint16_t magic = EXPECT_MAGIC;
+        eeprom_write(magic, magic);
+        sei();
+        printf_P(PSTR("set_params for next boot\n"));
+        printf_P(PSTR("measure %hu comms %hu wake %hhu\n"),
+                new_measure_wake, new_comms_wake, new_wake_secs);
+    }
 }
 
 static void
@@ -520,6 +552,10 @@ read_handler()
     else if (strncmp_P(readbuf, PSTR("set_params "), 11) == 0)
     {
         cmd_set_params(&readbuf[11]);
+    }
+    else if (strncmp_P(readbuf, PSTR("set_fridge "), 11) == 0)
+    {
+        cmd_set_fridge(&readbuf[11]);
     }
     else if (strcmp_P(readbuf, PSTR("awake")) == 0)
     {
