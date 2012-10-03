@@ -47,17 +47,12 @@ read_scratchpad( uint8_t id[], uint8_t sp[], uint8_t n )
 	return ret;
 }
 
-static int16_t 
-ds18b20_raw_to_decicelsius( uint8_t sp[] )
+int16_t 
+ds18b20_raw16_to_decicelsius(uint16_t measure)
 {
-	uint16_t measure;
 	uint8_t  negative;
 	int16_t  decicelsius;
 	uint16_t fract;
-
-	measure = sp[0] | (sp[1] << 8);
-	//measure = 0xFF5E; // test -10.125
-	//measure = 0xFE6F; // test -25.0625
 
 	// check for negative 
 	if ( measure & 0x8000 )  {
@@ -67,22 +62,6 @@ ds18b20_raw_to_decicelsius( uint8_t sp[] )
 	}
 	else {
 		negative = 0;
-	}
-
-	// clear undefined bits for DS18B20 != 12bit resolution
-	switch( sp[DS18B20_CONF_REG] & DS18B20_RES_MASK ) {
-	case DS18B20_9_BIT:
-		measure &= ~(DS18B20_9_BIT_UNDF);
-		break;
-	case DS18B20_10_BIT:
-		measure &= ~(DS18B20_10_BIT_UNDF);
-		break;
-	case DS18B20_11_BIT:
-		measure &= ~(DS18B20_11_BIT_UNDF);
-		break;
-	default:
-		// 12 bit - all bits valid
-		break;
 	}
 
 	decicelsius = (measure >> 4);
@@ -111,18 +90,15 @@ ds18b20_raw_to_decicelsius( uint8_t sp[] )
 uint8_t 
 simple_ds18b20_read_decicelsius( uint8_t id[], int16_t *decicelsius )
 {
-	uint8_t sp[DS18X20_SP_SIZE];
+    uint16_t reading;
 	uint8_t ret;
-	
-	if (id)
-	{
-		ow_reset();
-	}
-	ret = read_scratchpad( id, sp, DS18X20_SP_SIZE );
-	if ( ret == DS18X20_OK ) {
-		*decicelsius = ds18b20_raw_to_decicelsius( sp );
-	}
-	return ret;
+
+    ret = simple_ds18b20_read_raw(id, &reading);
+    if (ret == DS18X20_OK)
+    {
+        *decicelsius = ds18b20_raw16_to_decicelsius(reading);
+    }
+    return ret;
 }
 
 uint8_t 
