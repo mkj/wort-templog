@@ -1,6 +1,8 @@
 #include <stdio.h>
 #include <string.h>
 #include <stddef.h>
+#include <stdbool.h>
+#include <stdlib.h>
 #include <avr/io.h>
 #include <avr/interrupt.h>
 #include <avr/sleep.h>
@@ -481,8 +483,8 @@ cmd_get_params()
     printf_P(PSTR("comms %hu\n"), comms_wake);
     printf_P(PSTR("wake %hhu\n"), wake_secs);
     printf_P(PSTR("tick %d\n"), TICK);
-    printf_P(PSTR("fridge %.1fº\n"), fridge_setpoint / 10.0);
-    printf_P(PSTR("fridge difference %.1fº\n"), fridge_difference / 10.0);
+    printf_P(PSTR("fridge %.1fº\n"), fridge_setpoint / 10.0f);
+    printf_P(PSTR("fridge difference %.1fº\n"), fridge_difference / 10.0f);
     printf_P(PSTR("fridge_delay %hu\n"), fridge_delay);
     printf_P(PSTR("sensors %hhu (%hhu)\n"), 
             n_sensors, MAX_SENSORS);
@@ -496,14 +498,10 @@ cmd_set_params(const char *params)
     uint16_t new_measure_wake;
     uint16_t new_comms_wake;
     uint8_t new_wake_secs;
-    int16_t new_fridge_setpoint;
-    int16_t new_fridge_difference;
-    uint16_t new_fridge_delay;
-    int ret = sscanf_P(params, PSTR("%hu %hu %hhu %hd %hd %hu"),
-            &new_measure_wake, &new_comms_wake, &new_wake_secs,
-            &new_fridge_setpoint, &new_fridge_difference, &new_fridge_delay);
+    int ret = sscanf_P(params, PSTR("%hu %hu %hhu"),
+            &new_measure_wake, &new_comms_wake, &new_wake_secs);
 
-    if (ret != 6)
+    if (ret != 3)
     {
         printf_P(PSTR("Bad values\n"));
     }
@@ -514,24 +512,101 @@ cmd_set_params(const char *params)
             eeprom_write(new_measure_wake, measure_wake);
             eeprom_write(new_comms_wake, comms_wake);
             eeprom_write(new_wake_secs, wake_secs);
-            eeprom_write(new_fridge_setpoint, fridge_setpoint);
-            eeprom_write(new_fridge_difference, fridge_difference);
-            eeprom_write(new_fridge_delay, fridge_delay);
             uint16_t magic = EXPECT_MAGIC;
             eeprom_write(magic, magic);
         }
         printf_P(PSTR("set_params for next boot\n"));
-        printf_P(PSTR("measure %hu comms %hu wake %hhu fridge %.1fº diff %.1f delay %hu\n"),
-                new_measure_wake, new_comms_wake, new_wake_secs,
-                new_fridge_setpoint / 10.0, new_fridge_difference / 10.0,
-                new_fridge_delay
-                );
+        printf_P(PSTR("measure %hu comms %hu wake %hhu\n"),
+                new_measure_wake, new_comms_wake, new_wake_secs);
+    }
+}
 
-        // fridge parameters can safely be updated immediately, and avoids
-        // resetting the delay with a reset.
-        fridge_setpoint = new_fridge_setpoint;
-        fridge_difference = new_fridge_difference;
-        fridge_delay = new_fridge_delay;
+// returns true if eeprom was written
+static bool
+set_initial_eeprom()
+{
+    uint16_t magic;
+    eeprom_read(magic, magic);
+    if (magic == EXPECT_MAGIC)
+    {
+        return false;
+    }
+
+    ATOMIC_BLOCK(ATOMIC_RESTORESTATE)
+    {
+        eeprom_write(measure_wake, measure_wake);
+        eeprom_write(comms_wake, comms_wake);
+        eeprom_write(wake_secs, wake_secs);
+        eeprom_write(fridge_setpoint, fridge_setpoint);
+        eeprom_write(fridge_difference, fridge_difference);
+        eeprom_write(fridge_delay, fridge_delay);
+        magic = EXPECT_MAGIC;
+        eeprom_write(magic, magic);
+    }
+
+    return true;
+}
+
+static void
+cmd_set_fridge_setpoint(char *params)
+{
+    float new_f = atof(params);
+    if (new_f < 2 || new_f > 30)
+    {
+        printf_P(PSTR("Bad fridge value %f\n"), new_f);
+        return;
+    }
+
+    fridge_setpoint = new_f * 10;
+    bool written = set_initial_eeprom();
+    if (!written)
+    {
+        ATOMIC_BLOCK(ATOMIC_RESTORESTATE)
+        {
+            eeprom_write(fridge_setpoint, fridge_setpoint);
+        }
+    }
+}
+
+static void
+cmd_set_fridge_difference(char *params)
+{
+    float new_f = atof(params);
+    if (new_f < 0 || new_f > 30)
+    {
+        printf_P(PSTR("Bad fridge value %f\n"), new_f);
+        return;
+    }
+
+    fridge_difference = new_f * 10;
+    bool written = set_initial_eeprom();
+    if (!written)
+    {
+        ATOMIC_BLOCK(ATOMIC_RESTORESTATE)
+        {
+            eeprom_write(fridge_difference, fridge_difference);
+        }
+    }
+}
+
+static void
+cmd_set_fridge_delay(char *params)
+{
+    uint16_t new_delay = atoi(params);
+    if (new_delay < 5)
+    {
+        printf_P(PSTR("Bad fridge delay %d\n"), new_delay);
+        return;
+    }
+
+    fridge_delay = new_delay;
+    bool written = set_initial_eeprom();
+    if (!written)
+    {
+        ATOMIC_BLOCK(ATOMIC_RESTORESTATE)
+        {
+            eeprom_write(fridge_delay, fridge_delay);
+        }
     }
 }
     
@@ -576,6 +651,18 @@ read_handler()
     else if (strcmp_P(readbuf, PSTR("awake")) == 0)
     {
         cmd_awake();
+    }
+    else if (strncmp_P(readbuf, PSTR("fridge_setpoint "), 16) == 0)
+    {
+        cmd_set_fridge_setpoint(&readbuf[16]);
+    }
+    else if (strncmp_P(readbuf, PSTR("fridge_diff "), 12) == 0)
+    {
+        cmd_set_fridge_difference(&readbuf[12]);
+    }
+    else if (strncmp_P(readbuf, PSTR("fridge_delay "), 13) == 0)
+    {
+        cmd_set_fridge_delay(&readbuf[13]);
     }
     else if (strcmp_P(readbuf, PSTR("reset")) == 0)
     {
