@@ -156,7 +156,8 @@ def do_comms(sock):
 
     clear_meas(sock)
 
-    next_wake = turn_off(sock)
+    next_wake = 600
+    #next_wake = turn_off(sock)
     sock.close()
     return next_wake
 

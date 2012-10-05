@@ -164,6 +164,20 @@ static const uint8_t wort_id[ID_LEN] =
 
 static void deep_sleep();
 
+// 0 or 1
+static uint8_t
+is_fridge_on()
+{
+    if (PORT_FRIDGE & _BV(PIN_FRIDGE))
+    {
+        return 1;
+    }
+    else
+    {
+        return 0;
+    }
+}
+
 // Very first setup
 static void
 setup_chip()
@@ -348,6 +362,7 @@ cmd_fetch()
     fprintf_P(crc_stdout, PSTR("fridge=%.1f\n"), fridge_setpoint/10.0);
     fprintf_P(crc_stdout, PSTR("fridge_diff=%.1f\n"), fridge_difference/10.0);
     fprintf_P(crc_stdout, PSTR("fridge_delay=%hu\n"), fridge_delay);
+    fprintf_P(crc_stdout, PSTR("fridge_status=%hhu\n"), is_fridge_on());
     fprintf_P(crc_stdout, PSTR("tick_secs=%d\n"), TICK);
     fprintf_P(crc_stdout, PSTR("tick_wake=%d\n"), SLEEP_COMPARE);
     fprintf_P(crc_stdout, PSTR("maxsens=%hhu\n"), MAX_SENSORS);
@@ -396,6 +411,7 @@ cmd_btoff()
     printf_P(PSTR("tick_wake=%hhu\n"), SLEEP_COMPARE);
     _delay_ms(100);
     comms_timeout = 0;
+    stay_awake = 0;
 }
 
 static void
@@ -841,7 +857,7 @@ do_measurement()
 
     simple_ds18b20_start_meas(NULL);
     // sleep rather than using a long delay
-    deep_sleep();
+    idle_sleep();
     //_delay_ms(DS18B20_TCONV_12BIT);
 
     if (n_measurements == max_measurements)
@@ -966,6 +982,8 @@ int main(void)
 
     need_comms = 1;
     need_measurement = 1;
+
+    stay_awake = 1;
 
     for(;;)
     {
