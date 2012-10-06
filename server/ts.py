@@ -42,8 +42,13 @@ def get_socket(addr):
     return s
 
 
+def flush(sock):
+    while readline(sock):
+        pass
+
 @retry()
 def fetch(sock):
+    flush(sock)
     sock.send("fetch\n")
 
     crc = 0
@@ -94,6 +99,7 @@ def turn_off(sock):
     if TESTING:
         return 99
     L("Sending btoff")
+    flush(sock)
     sock.send("btoff\n");
     # read newline
     l = readline(sock)
@@ -121,6 +127,7 @@ def turn_off(sock):
 
 @retry()
 def clear_meas(sock):
+    flush(sock)
     sock.send("clear\n");
     l = readline(sock)
     if l and l.rstrip() == 'cleared':
