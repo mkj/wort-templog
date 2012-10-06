@@ -205,6 +205,7 @@ setup_chip()
     DDR_SHDN |= _BV(PIN_SHDN);
 
     DDR_FRIDGE |= _BV(PIN_FRIDGE);
+    PORT_FRIDGE &= ~_BV(PIN_FRIDGE);
 
     // set pullup
     PORTD |= _BV(PD2);
@@ -582,6 +583,7 @@ cmd_set_fridge_setpoint(char *params)
             eeprom_write(fridge_setpoint, fridge_setpoint);
         }
     }
+    printf_P(PSTR("new fridge %.1fº\n"), fridge_setpoint / 10.0f);
 }
 
 static void
@@ -603,6 +605,7 @@ cmd_set_fridge_difference(char *params)
             eeprom_write(fridge_difference, fridge_difference);
         }
     }
+    printf_P(PSTR("new fridge difference %.1fº\n"), fridge_difference / 10.0f);
 }
 
 static void
@@ -624,6 +627,7 @@ cmd_set_fridge_delay(char *params)
             eeprom_write(fridge_delay, fridge_delay);
         }
     }
+    printf_P(PSTR("new fridge delay %hu\n"), fridge_delay);
 }
     
 static void
@@ -810,25 +814,32 @@ do_fridge()
 {
     struct epoch_ticks now;
     get_epoch_ticks(&now);
-    if (now.ticks - fridge_off_clock.ticks < fridge_delay)
+    uint16_t delay_delta = now.ticks - fridge_off_clock.ticks;
+    if (delay_delta < fridge_delay)
     {
+        printf_P(PSTR("waiting for fridge delay current %hu, wait %hu\n"),
+                delay_delta, fridge_delay);
         return;
     }
 
     if (last_wort == DS18X20_INVALID_DECICELSIUS)
     {
         // can't really do much sensible.... alert perhaps?
+        printf_P(PSTR("Bad last wort!\n"));
         need_comms = 1;
         return;
     }
 
     int16_t wort_delta = last_wort - fridge_setpoint;
     uint8_t fridge_on = PORT_FRIDGE & _BV(PIN_FRIDGE);
+    printf_P(PSTR("last_wort %hd, setpoint %hd, delta %hd, fridge_on %d\n"), 
+            last_wort, fridge_setpoint, wort_delta, fridge_on);
     if (fridge_on)
     {
         if (last_wort <= fridge_setpoint)
         {
             // too cold, turn off
+            printf_P(PSTR("Turning fridge off\n"));
             PORT_FRIDGE &= ~_BV(PIN_FRIDGE);
             fridge_off_clock = now;
         }
@@ -838,6 +849,7 @@ do_fridge()
         if (wort_delta > fridge_difference)
         {
             // too hot, turn on
+            printf_P(PSTR("Turning fridge on\n"));
             PORT_FRIDGE |= _BV(PIN_FRIDGE);
         }
     }
