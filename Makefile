@@ -56,7 +56,7 @@ FUSES      = -U hfuse:w:0xd9:m -U lfuse:w:0x62:m
 # Tune the lines below only if you know what you are doing:
 
 AVRDUDE = avrdude $(PROGRAMMER) 
-COMPILE = avr-gcc -Wall -Os -DF_CPU=$(CLOCK) -mmcu=$(DEVICE) -g -std=c99 -mcall-prologues -fdata-sections -ffunction-sections  -Wl,--gc-sections -Wl,--relax --combine -fwhole-program
+COMPILE = avr-gcc -Wall -Os -DF_CPU=$(CLOCK) -mmcu=$(DEVICE) -g -std=c99 -mcall-prologues -fdata-sections -ffunction-sections  -Wl,--gc-sections -Wl,--relax --combine -fwhole-program  -Wl,-u,vfprintf -lprintf_flt -lm
 
 # symbolic targets:
 all:	main.hex
