@@ -80,7 +80,7 @@ ds18b20_raw16_to_decicelsius(uint16_t measure)
 		decicelsius = -decicelsius;
 	}
 
-	if ( /* decicelsius == 850 || */ decicelsius < -550 || decicelsius > 1250 ) {
+	if ( decicelsius == 850 || decicelsius < -550 || decicelsius > 1250 ) {
 		return DS18X20_INVALID_DECICELSIUS;
 	} else {
 		return decicelsius;
