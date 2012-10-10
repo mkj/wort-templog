@@ -76,11 +76,14 @@ def graph_png(start, length):
             graph_args.append('CDEF:%(vname)s=raw%(vname)s,35,GT,UNKN,raw%(vname)s,0.1,*,2,+,IF' % locals())
             unit = '<span face="Liberation Serif">º</span>C'
 
-        last_value = float(rrdtool.info(rrdfile)['ds[temp].last_ds'])
+        try:
+            last_value = float(rrdtool.info(rrdfile)['ds[temp].last_ds'])
+            format_last_value = ('%f' % last_value).rstrip('0') + unit
+        except ValueError:
+            format_last_value = 'Bad'
         width = config.LINE_WIDTH
         legend = config.SENSOR_NAMES.get(sensor, sensor)
         colour = config.SENSOR_COLOURS.get(legend, colour_from_string(sensor))
-        format_last_value = ('%f' % last_value).rstrip('0') + unit
         print_legend = '%s (%s)' % (legend, format_last_value)
         graph_args.append('LINE%(width)f:%(vname)s#%(colour)s:%(print_legend)s' % locals())
 
@@ -128,6 +131,13 @@ def graph_png(start, length):
     #return tempf
     return tempf.read()
 
+def validate_values(measurements):
+    for m in measurements:
+        if m == 85:
+            yield 'U'
+        else:
+            yield '%f' % m
+
 def sensor_update(sensor_id, measurements, first_real_time, time_step):
     try:
         open(sensor_rrd_path(sensor_id))
@@ -135,9 +145,9 @@ def sensor_update(sensor_id, measurements, first_real_time, time_step):
         create_rrd(sensor_id)
 
     if measurements:
-        values = ['%d:%f' % p for p in 
+        values = ['%d:%s' % p for p in 
             zip((first_real_time + time_step*t for t in xrange(len(measurements))),
-                measurements)]
+                validate_values(measurements))]
 
         rrdfile = sensor_rrd_path(sensor_id)
         # XXX what to do here when it fails...
