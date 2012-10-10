@@ -214,8 +214,8 @@ setup_chip()
     DDR_LED |= _BV(PIN_LED);
     DDR_SHDN |= _BV(PIN_SHDN);
 
-    DDR_FRIDGE |= _BV(PIN_FRIDGE);
     PORT_FRIDGE &= ~_BV(PIN_FRIDGE);
+    DDR_FRIDGE |= _BV(PIN_FRIDGE);
 
     // set pullup
     PORTD |= _BV(PD2);
