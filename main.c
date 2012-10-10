@@ -22,6 +22,9 @@
 // - bluetooth params
 // - number of sensors (and range?)
 
+#define MIN(X,Y) ((X) < (Y) ? (X) : (Y))
+#define MAX(X,Y) ((X) > (Y) ? (X) : (Y))
+
 // TICK should be 8 or less (8 untested). all timers need
 // to be a multiple.
 
@@ -31,6 +34,10 @@
 
 #define VALUE_NOSENSOR 0x07D0 // 125 degrees
 #define VALUE_BROKEN 0x07D1 // 125.0625
+
+#define FRIDGE_AIR_MIN_RANGE 3
+#define FRIDGE_AIR_MAX_RANGE 3
+#define OVERSHOOT_SCALE 1
 
 #define BAUD 19200
 #define UBRR ((F_CPU)/8/(BAUD)-1)
@@ -49,7 +56,7 @@
 
 // total amount of 16bit values available for measurements.
 // adjust emperically, be sure to allow enough stack space too
-#define TOTAL_MEASUREMENTS 840
+#define TOTAL_MEASUREMENTS 800
 
 // each sensor slot uses 8 bytes
 #define MAX_SENSORS 6
@@ -75,10 +82,11 @@ static uint16_t comms_wake = 600;
 static uint8_t wake_secs = 30;
 // decidegrees
 static int16_t fridge_setpoint = 180; // 18.0ºC
-static int16_t fridge_difference = 5; // 0.5ºC
+static int16_t fridge_difference = 3; // 0.3ºC
 static uint16_t fridge_delay = 600; // seconds
 
 // ---- Atomic guards required accessing these variables
+// clock_epoch in seconds
 static uint32_t clock_epoch;
 static uint16_t comms_count;
 static uint16_t measure_count;
@@ -117,6 +125,7 @@ static uint8_t sensor_id[MAX_SENSORS][ID_LEN];
 static int16_t last_fridge = DS18X20_INVALID_DECICELSIUS;
 static int16_t last_wort = DS18X20_INVALID_DECICELSIUS;
 static struct epoch_ticks fridge_off_clock = {0};
+static struct epoch_ticks fridge_on_clock = {0};
 
 int uart_putchar(char c, FILE *stream);
 static void long_delay(int ms);
@@ -574,16 +583,22 @@ cmd_set_fridge_setpoint(char *params)
         return;
     }
 
+    int16_t old_setpoint = fridge_setpoint;
+
     fridge_setpoint = new_f * 10;
     bool written = set_initial_eeprom();
     if (!written)
     {
-        ATOMIC_BLOCK(ATOMIC_RESTORESTATE)
+        if (old_setpoint != fridge_setpoint)
         {
-            eeprom_write(fridge_setpoint, fridge_setpoint);
+            ATOMIC_BLOCK(ATOMIC_RESTORESTATE)
+            {
+                eeprom_write(fridge_setpoint, fridge_setpoint);
+            }
         }
     }
-    printf_P(PSTR("new fridge %.1fº\n"), fridge_setpoint / 10.0f);
+    printf_P(PSTR("old fridge %.1fº new fridge %.1fº\n"), 
+            old_setpoint / 10.0f, fridge_setpoint / 10.0f);
 }
 
 static void
@@ -814,29 +829,55 @@ do_fridge()
 {
     struct epoch_ticks now;
     get_epoch_ticks(&now);
-    uint16_t delay_delta = now.ticks - fridge_off_clock.ticks;
-    if (delay_delta < fridge_delay)
+    uint16_t off_time = now.ticks - fridge_off_clock.ticks;
+    bool wort_valid = last_wort != DS18X20_INVALID_DECICELSIUS;
+    bool fridge_valid = last_fridge != DS18X20_INVALID_DECICELSIUS;
+
+    int16_t wort_max = fridge_setpoint + fridge_difference;
+    int16_t wort_min = fridge_setpoint;
+
+    // the fridge min only applies when the wort is in the desired range.
+    int16_t fridge_min = fridge_setpoint - FRIDGE_AIR_MIN_RANGE;
+    int16_t fridge_max = fridge_setpoint + FRIDGE_AIR_MAX_RANGE;
+
+    uint8_t fridge_on = PORT_FRIDGE & _BV(PIN_FRIDGE);
+    printf_P(PSTR("last_wort %hd (%hd, %hd), last_fridge %hd (%hd, %hd), setpoint %hd, diff %hd, fridge_on %d\n"), 
+            last_wort, wort_min, wort_max, 
+            fridge_setpoint, fridge_min, fridge_max, 
+            fridge_difference, fridge_on);
+
+    if (off_time < fridge_delay)
     {
         printf_P(PSTR("waiting for fridge delay current %hu, wait %hu\n"),
-                delay_delta, fridge_delay);
+                off_time, fridge_delay);
         return;
     }
 
-    if (last_wort == DS18X20_INVALID_DECICELSIUS)
-    {
-        // can't really do much sensible.... alert perhaps?
-        printf_P(PSTR("Bad last wort!\n"));
-        need_comms = 1;
-        return;
-    }
 
-    int16_t wort_delta = last_wort - fridge_setpoint;
-    uint8_t fridge_on = PORT_FRIDGE & _BV(PIN_FRIDGE);
-    printf_P(PSTR("last_wort %hd, setpoint %hd, delta %hd, fridge_on %d\n"), 
-            last_wort, fridge_setpoint, wort_delta, fridge_on);
     if (fridge_on)
     {
-        if (last_wort <= fridge_setpoint)
+        bool turn_off = false;
+        uint16_t on_time = now.ticks - fridge_on_clock.ticks;
+
+        // *10 for decicelcius
+        uint16_t overshoot = OVERSHOOT_SCALE * 10.0f * MAX(3600, on_time) / 3600.0;
+
+        // wort has cooled enough. will probably cool a bit more by itself
+        if (wort_valid && (last_wort-overshoot) <= fridge_setpoint)
+        {
+            printf_P("wort has cooled enough, overshoot %hu\n", overshoot);
+            turn_off = true;
+        }
+
+        // fridge is much cooler than wort
+        if ((last_wort < wort_max || !wort_valid) && 
+            fridge_valid && last_fridge < fridge_min)
+        {
+            printf_P("fridge is too cold\n");
+            turn_off = true;
+        }
+
+        if (turn_off)
         {
             // too cold, turn off
             printf_P(PSTR("Turning fridge off\n"));
@@ -846,11 +887,27 @@ do_fridge()
     }
     else
     {
-        if (wort_delta > fridge_difference)
+        bool turn_on = false;
+
+        if (wort_valid && last_wort >= wort_max)
+        {
+            printf_P("wort is too hot\n");
+            turn_on = true;
+        }
+
+        if ((last_wort > wort_min || !wort_valid) &&
+            (fridge_valid && last_fridge > fridge_setpoint))
+        {
+            printf_P("fridge is too hot\n");
+            turn_on = true;
+        }
+
+        if (turn_on)
         {
             // too hot, turn on
             printf_P(PSTR("Turning fridge on\n"));
             PORT_FRIDGE |= _BV(PIN_FRIDGE);
+            fridge_on_clock = now;
         }
     }
 }
@@ -889,11 +946,11 @@ do_measurement()
 
         if (memcmp(sensor_id[s], fridge_id, sizeof(fridge_id)) == 0)
         {
-            last_fridge = ds18b20_raw16_to_decicelsius(reading);;
+            last_fridge = ds18b20_raw16_to_decicelsius(reading);
         }
         if (memcmp(sensor_id[s], wort_id, sizeof(wort_id)) == 0)
         {
-            last_wort = ds18b20_raw16_to_decicelsius(reading);;
+            last_wort = ds18b20_raw16_to_decicelsius(reading);
         }
     }
 
