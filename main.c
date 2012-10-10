@@ -35,8 +35,9 @@
 #define VALUE_NOSENSOR 0x07D0 // 125 degrees
 #define VALUE_BROKEN 0x07D1 // 125.0625
 
-#define FRIDGE_AIR_MIN_RANGE 3
-#define FRIDGE_AIR_MAX_RANGE 3
+// ranges are in decicelcius
+#define FRIDGE_AIR_MIN_RANGE 30
+#define FRIDGE_AIR_MAX_RANGE 30
 #define OVERSHOOT_SCALE 1
 
 #define BAUD 19200
