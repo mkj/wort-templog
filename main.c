@@ -38,7 +38,7 @@
 // ranges are in decicelcius
 #define FRIDGE_AIR_MIN_RANGE 30
 #define FRIDGE_AIR_MAX_RANGE 30
-#define OVERSHOOT_SCALE 1
+#define OVERSHOOT_SCALE 0.5
 
 #define BAUD 19200
 #define UBRR ((F_CPU)/8/(BAUD)-1)
@@ -374,6 +374,10 @@ cmd_fetch()
     fprintf_P(crc_stdout, PSTR("fridge_diff=%.1f\n"), fridge_difference/10.0);
     fprintf_P(crc_stdout, PSTR("fridge_delay=%hu\n"), fridge_delay);
     fprintf_P(crc_stdout, PSTR("fridge_status=%hhu\n"), is_fridge_on());
+    fprintf_P(crc_stdout, PSTR("fridge_last_on=%lu\n"), fridge_on_clock.ticks);
+    fprintf_P(crc_stdout, PSTR("fridge_last_off=%lu\n"), fridge_off_clock.ticks);
+    fprintf_P(crc_stdout, PSTR("last_fridge=%hu\n"), last_fridge);
+    fprintf_P(crc_stdout, PSTR("last_wort=%hu\n"), last_wort);
     fprintf_P(crc_stdout, PSTR("tick_secs=%d\n"), TICK);
     fprintf_P(crc_stdout, PSTR("tick_wake=%d\n"), SLEEP_COMPARE);
     fprintf_P(crc_stdout, PSTR("maxsens=%hhu\n"), MAX_SENSORS);
@@ -842,7 +846,7 @@ do_fridge()
     int16_t fridge_max = fridge_setpoint + FRIDGE_AIR_MAX_RANGE;
 
     uint8_t fridge_on = PORT_FRIDGE & _BV(PIN_FRIDGE);
-    printf_P(PSTR("last_wort %hd (%hd, %hd), last_fridge %hd (%hd, %hd), setpoint %hd, diff %hd, fridge_on %d\n"), 
+    printf_P(PSTR("last_wort %hd (%hd, %hd), last_fridge %hd (%hd, %hd), setpoint %hd, diff %hd, fridge_on %hu\n"), 
             last_wort, wort_min, wort_max, 
             fridge_setpoint, fridge_min, fridge_max, 
             fridge_difference, fridge_on);
@@ -861,12 +865,14 @@ do_fridge()
         uint16_t on_time = now.ticks - fridge_on_clock.ticks;
 
         // *10 for decicelcius
-        uint16_t overshoot = OVERSHOOT_SCALE * 10.0f * MAX(3600, on_time) / 3600.0;
+        uint16_t overshoot = OVERSHOOT_SCALE * 10.0f * MIN(3600, on_time) / 3600.0;
+
+        printf_P(PSTR("on_time %hu, overshoot %hu\n"), on_time, overshoot);
 
         // wort has cooled enough. will probably cool a bit more by itself
         if (wort_valid && (last_wort-overshoot) <= fridge_setpoint)
         {
-            printf_P("wort has cooled enough, overshoot %hu\n", overshoot);
+            printf_P(PSTR("wort has cooled enough, overshoot %hu on_time %hu\n"), overshoot, on_time);
             turn_off = true;
         }
 
@@ -874,7 +880,7 @@ do_fridge()
         if ((last_wort < wort_max || !wort_valid) && 
             fridge_valid && last_fridge < fridge_min)
         {
-            printf_P("fridge is too cold\n");
+            printf_P(PSTR("fridge is too cold\n"));
             turn_off = true;
         }
 
@@ -892,7 +898,7 @@ do_fridge()
 
         if (wort_valid && last_wort >= wort_max)
         {
-            printf_P("wort is too hot\n");
+            printf_P(PSTR("wort is too hot\n"));
             turn_on = true;
         }
 
@@ -906,7 +912,7 @@ do_fridge()
         if ((last_wort > wort_min || !wort_valid) &&
             (fridge_valid && last_fridge > fridge_setpoint))
         {
-            printf_P("fridge is too hot\n");
+            printf_P(PSTR("fridge is too hot\n"));
             turn_on = true;
         }
 
