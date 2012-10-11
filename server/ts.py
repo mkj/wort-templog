@@ -43,21 +43,34 @@ def get_socket(addr):
 
 
 def flush(sock):
-    while readline(sock):
-        pass
+    ret = []
+    while True:
+        l = readline(sock)
+        if l:
+            ret.append(l)
+        else:
+            break
+    return ret
+
+def encode_extra(extra_lines):
+    return ['extra%d=%s' % (n, l.strip()) for (n,l) in enumerate(extra_lines)]
 
 @retry()
 def fetch(sock):
-    flush(sock)
+    extra_lines = flush(sock)
     sock.send("fetch\n")
 
     crc = 0
 
     lines = []
     l = readline(sock)
-    if l != 'START\n':
-        W("Bad expected START line '%s'\n" % str(l).rstrip('\n'))
+    if not l:
         return None
+
+    if l != 'START\n':
+        W("Bad expected START line '%s'\n" % l.rstrip('\n'))
+        extra_lines.append(l)
+        return encode_extra(extra_lines)
     crc = crc16(l, crc)
 
     while True:
@@ -69,6 +82,8 @@ def fetch(sock):
             break
 
         lines.append(l.rstrip('\n'))
+
+    lines += encode_extra(extra_lines)
 
     for d in lines:
         L("Received: %s" % d)
