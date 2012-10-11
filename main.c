@@ -896,6 +896,13 @@ do_fridge()
             turn_on = true;
         }
 
+        if ((fridge_valid && last_fridge > fridge_max))
+        {
+            printf_P("fridge is max too hot\n");
+            turn_on = true;
+        }
+
+
         if ((last_wort > wort_min || !wort_valid) &&
             (fridge_valid && last_fridge > fridge_setpoint))
         {
