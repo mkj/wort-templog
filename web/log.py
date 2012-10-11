@@ -34,6 +34,11 @@ def create_rrd(sensor_id):
                 '--step', '3600',
                 'DS:temp:GAUGE:7200:1:10',
                 'RRA:AVERAGE:0.5:1:87600']
+    elif 'fridge_on' in sensor_id:
+        args = [
+                '--step', '300',
+                'DS:temp:GAUGE:600:-100:500',
+                'RRA:LAST:0.5:1:1051200']
     else:
         args = [
                 '--step', '300',
@@ -62,6 +67,7 @@ def graph_png(start, length):
     graph_args = []
     have_volts = False
     for n, (rrdfile, sensor) in enumerate(rrds):
+        unit = None
         if 'avrtemp' in sensor:
             continue
         if 'voltage' in sensor:
@@ -69,6 +75,10 @@ def graph_png(start, length):
             vname = 'scalevolts'
             graph_args.append('DEF:%(vname)s=%(rrdfile)s:temp:AVERAGE:step=3600' % locals())
             unit = 'V'
+        elif 'fridge_on' in sensor:
+            vname = 'fridge_on'
+            graph_args.append('DEF:raw%(vname)s=%(rrdfile)s:temp:LAST' % locals())
+            graph_args.append('CDEF:%(vname)s=raw%(vname)s,3,+' % locals())
         else:
             vname = 'temp%d' % n
             graph_args.append('DEF:raw%(vname)s=%(rrdfile)s:temp:AVERAGE' % locals())
@@ -76,15 +86,20 @@ def graph_png(start, length):
             graph_args.append('CDEF:%(vname)s=raw%(vname)s,35,GT,UNKN,raw%(vname)s,0.1,*,2,+,IF' % locals())
             unit = '<span face="Liberation Serif">º</span>C'
 
-        try:
-            last_value = float(rrdtool.info(rrdfile)['ds[temp].last_ds'])
-            format_last_value = ('%f' % last_value).rstrip('0') + unit
-        except ValueError:
-            format_last_value = 'Bad'
+        format_last_value = None
+        if unit:
+            try:
+                last_value = float(rrdtool.info(rrdfile)['ds[temp].last_ds'])
+                format_last_value = ('%f' % last_value).rstrip('0.') + unit
+            except ValueError:
+                pass
         width = config.LINE_WIDTH
         legend = config.SENSOR_NAMES.get(sensor, sensor)
         colour = config.SENSOR_COLOURS.get(legend, colour_from_string(sensor))
-        print_legend = '%s (%s)' % (legend, format_last_value)
+        if format_last_value:
+            print_legend = '%s (%s)' % (legend, format_last_value)
+        else:
+            print_legend = legend
         graph_args.append('LINE%(width)f:%(vname)s#%(colour)s:%(print_legend)s' % locals())
 
     end = int(start+length)
@@ -234,6 +249,13 @@ def parse(lines):
         voltage = 0.001 * int(entries['voltage'])
         sensor_update('voltage', [voltage], time.time(), 1)
 
+    if 'fridge_status' in entries:
+        fridge_on = int(entries['fridge_status'])
+        sensor_update('fridge_on', [fridge_on], time.time(), 1)
+
+    if 'fridge' in entries:
+        fridge_setpoint = float(entries['fridge'])
+        sensor_update('fridge_setpoint', [fridge_setpoint], time.time(), 1)
     #sqlite 
     # - time
     # - voltage
