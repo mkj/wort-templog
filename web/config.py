@@ -19,7 +19,7 @@ SENSOR_NAMES = {'sensor_28 CE B2 1A 03 00 00 99': "Fridge",
     'sensor_28 49 BC 1A 03 00 00 54': "Wort",
     'sensor_voltage': 'Voltage',
     'sensor_fridge_setpoint': 'Setpoint',
-    'sensor_fridge_on': 'On',
+    'sensor_fridge_on': 'Cool',
     }
 
 SENSOR_COLOURS = {'Wort': 'e49222', 
@@ -27,7 +27,7 @@ SENSOR_COLOURS = {'Wort': 'e49222',
                 'Voltage': '7db5d3aa',
                 'Fridge': '4c40c8',
                 'Setpoint': '39c662',
-                'On': 'd7cedd',
+                'Cool': 'd7cedd',
                 }
 
 
