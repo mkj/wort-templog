@@ -78,7 +78,7 @@ def graph_png(start, length):
         elif 'fridge_on' in sensor:
             vname = 'fridge_on'
             graph_args.append('DEF:raw%(vname)s=%(rrdfile)s:temp:LAST' % locals())
-            graph_args.append('CDEF:%(vname)s=raw%(vname)s,3,+' % locals())
+            graph_args.append('CDEF:%(vname)s=raw%(vname)s,-0.2,*,3,+' % locals())
         else:
             vname = 'temp%d' % n
             graph_args.append('DEF:raw%(vname)s=%(rrdfile)s:temp:AVERAGE' % locals())
@@ -215,6 +215,10 @@ def parse(lines):
     entries = dict(l.split('=', 1) for l in lines)
     if len(entries) != len(lines):
         raise Exception("Keys are not unique")
+
+    if 'sensors' not in entries:
+        # only debug info, it's been recorded
+        return
 
     num_sensors = int(entries['sensors'])
     num_measurements = int(entries['measurements'])
