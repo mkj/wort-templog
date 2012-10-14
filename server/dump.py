@@ -145,7 +145,11 @@ def do_comms(sock):
 
     while True:
         l = readline(sock)
-        print l
+	if not l:
+		print '.',
+		sys.stdout.flush()
+	else:
+		print l
 
 testcount = 0
 
