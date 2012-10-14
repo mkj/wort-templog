@@ -969,9 +969,7 @@ do_measurement()
     }
 
     simple_ds18b20_start_meas(NULL);
-    // sleep rather than using a long delay
-    idle_sleep();
-    //_delay_ms(DS18B20_TCONV_12BIT);
+    _delay_ms(DS18B20_TCONV_12BIT);
 
     if (n_measurements == max_measurements)
     {
