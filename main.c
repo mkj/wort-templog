@@ -36,9 +36,12 @@
 #define VALUE_BROKEN 0x07D1 // 125.0625
 
 // ranges are in decicelcius
-#define FRIDGE_AIR_MIN_RANGE 30
-#define FRIDGE_AIR_MAX_RANGE 30
-#define OVERSHOOT_SCALE 0.5
+#define OVERSHOOT_DELAY 1800 // 30 mins
+#define OVERSHOOT_FACTOR 1
+#define WORT_INVALID_TIME 900 // 15 mins
+// fridge min/max are only used if the wort sensor is invalid
+#define FRIDGE_AIR_MIN_RANGE 40 // 4º
+#define FRIDGE_AIR_MAX_RANGE 40 // 4º
 
 #define BAUD 19200
 #define UBRR ((F_CPU)/8/(BAUD)-1)
@@ -127,6 +130,7 @@ static int16_t last_fridge = DS18X20_INVALID_DECICELSIUS;
 static int16_t last_wort = DS18X20_INVALID_DECICELSIUS;
 static struct epoch_ticks fridge_off_clock = {0};
 static struct epoch_ticks fridge_on_clock = {0};
+static struct epoch_ticks wort_valid_clock = {0};
 
 int uart_putchar(char c, FILE *stream);
 static void long_delay(int ms);
@@ -834,22 +838,22 @@ do_fridge()
 {
     struct epoch_ticks now;
     get_epoch_ticks(&now);
-    uint16_t off_time = now.ticks - fridge_off_clock.ticks;
+    uint32_t off_time = now.ticks - fridge_off_clock.ticks;
     bool wort_valid = last_wort != DS18X20_INVALID_DECICELSIUS;
     bool fridge_valid = last_fridge != DS18X20_INVALID_DECICELSIUS;
 
     int16_t wort_max = fridge_setpoint + fridge_difference;
     int16_t wort_min = fridge_setpoint;
 
-    // the fridge min only applies when the wort is in the desired range.
+    // the fridge min/max only apply if the wort sensor is broken
     int16_t fridge_min = fridge_setpoint - FRIDGE_AIR_MIN_RANGE;
     int16_t fridge_max = fridge_setpoint + FRIDGE_AIR_MAX_RANGE;
 
     uint8_t fridge_on = PORT_FRIDGE & _BV(PIN_FRIDGE);
-    printf_P(PSTR("last_wort %hd (%hd, %hd), last_fridge %hd (%hd, %hd), setpoint %hd, diff %hd, fridge_on %hu\n"), 
+    printf_P(PSTR("last_wort %hd (%hd, %hd), last_fridge %hd (%hd, %hd), setpoint %hd, diff %hd, fridge_on %hhu\n"), 
             last_wort, wort_min, wort_max, 
-            fridge_setpoint, fridge_min, fridge_max, 
-            fridge_difference, fridge_on);
+            last_fridge, fridge_min, fridge_max, 
+            fridge_setpoint, fridge_difference, fridge_on);
 
     if (off_time < fridge_delay)
     {
@@ -858,30 +862,59 @@ do_fridge()
         return;
     }
 
+    // handle failure of the wort sensor. if it is a short (intermittent?)
+    // failure we wait until it has been broken for a period of time
+    // (WORT_INVALID_TIME) before doing anything.
+    if (wort_valid)
+    {
+        wort_valid_clock = now;
+    }
+    else
+    {
+        printf_P(PSTR("wort sensor is invalid\n"));
+        uint32_t invalid_time = now.ticks - wort_valid_clock.ticks;
+        if (invalid_time < WORT_INVALID_TIME)
+        {
+            printf("only been invalid for %ld, waiting\n", invalid_time);
+            return;
+        }
+    }
+
+    if (!fridge_valid)
+    {
+        printf_P(PSTR("fridge sensor is invalid\n"));
+    }
 
     if (fridge_on)
     {
         bool turn_off = false;
         uint16_t on_time = now.ticks - fridge_on_clock.ticks;
 
-        // *10 for decicelcius
-        uint16_t overshoot = OVERSHOOT_SCALE * 10.0f * MIN(3600, on_time) / 3600.0;
+        uint16_t overshoot = 0;
+        if (on_time > 1800)
+        {
+            // *10.0f for decicelcius
+            overshoot = OVERSHOOT_FACTOR * 10.0f * MIN(3600, on_time) / 3600.0;
+        }
 
         printf_P(PSTR("on_time %hu, overshoot %hu\n"), on_time, overshoot);
 
         // wort has cooled enough. will probably cool a bit more by itself
-        if (wort_valid && (last_wort-overshoot) <= fridge_setpoint)
+        if (wort_valid)
         {
-            printf_P(PSTR("wort has cooled enough, overshoot %hu on_time %hu\n"), overshoot, on_time);
-            turn_off = true;
+            if ((last_wort - overshoot) < fridge_setpoint)
+            {
+                printf_P(PSTR("wort has cooled enough, overshoot %hu on_time %hu\n"), overshoot, on_time);
+                turn_off = true;
+            }
         }
-
-        // fridge is much cooler than wort
-        if ((last_wort < wort_max || !wort_valid) && 
-            fridge_valid && last_fridge < fridge_min)
+        else
         {
-            printf_P(PSTR("fridge is too cold\n"));
-            turn_off = true;
+            if (fridge_valid && last_fridge < fridge_min)
+            {
+                printf_P(PSTR("fridge off fallback\n"));
+                turn_off = true;
+            }
         }
 
         if (turn_off)
@@ -896,24 +929,21 @@ do_fridge()
     {
         bool turn_on = false;
 
-        if (wort_valid && last_wort >= wort_max)
+        if (wort_valid)
         {
-            printf_P(PSTR("wort is too hot\n"));
-            turn_on = true;
+            if (last_wort >= wort_max)
+            {
+                printf_P(PSTR("wort is too hot\n"));
+                turn_on = true;
+            }
         }
-
-        if ((fridge_valid && last_fridge > fridge_max))
+        else
         {
-            printf_P("fridge is max too hot\n");
-            turn_on = true;
-        }
-
-
-        if ((last_wort > wort_min || !wort_valid) &&
-            (fridge_valid && last_fridge > fridge_setpoint))
-        {
-            printf_P(PSTR("fridge is too hot\n"));
-            turn_on = true;
+            if (fridge_valid && last_fridge >= fridge_max)
+            {
+                printf_P(PSTR("fridge on fallback\n"));
+                turn_on = true;
+            }
         }
 
         if (turn_on)
