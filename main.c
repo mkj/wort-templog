@@ -35,9 +35,7 @@
 #define VALUE_NOSENSOR 0x07D0 // 125 degrees
 #define VALUE_BROKEN 0x07D1 // 125.0625
 
-// ranges are in decicelcius
-#define OVERSHOOT_DELAY 1800 // 30 mins
-#define OVERSHOOT_FACTOR 1
+#define OVERSHOOT_MAX_DIV 1800.0 // 30 mins
 #define WORT_INVALID_TIME 900 // 15 mins
 // fridge min/max are only used if the wort sensor is invalid
 #define FRIDGE_AIR_MIN_RANGE 40 // 4º
@@ -88,6 +86,9 @@ static uint8_t wake_secs = 30;
 static int16_t fridge_setpoint = 180; // 18.0ºC
 static int16_t fridge_difference = 3; // 0.3ºC
 static uint16_t fridge_delay = 600; // seconds
+
+static uint16_t overshoot_delay = 720; // 12 mins
+static uint8_t overshoot_factor = 10; // 1.0ºC
 
 // ---- Atomic guards required accessing these variables
 // clock_epoch in seconds
@@ -164,6 +165,9 @@ struct __attribute__ ((__packed__)) __eeprom_data {
     int16_t fridge_setpoint; // decidegrees
     uint8_t fridge_difference; // decidegrees
     uint16_t fridge_delay;
+
+    uint16_t overshoot_delay;
+    uint8_t overshoot_factor; // decidegrees
 
 #if 0
     static uint8_t wort_id[ID_LEN];
@@ -377,6 +381,8 @@ cmd_fetch()
     fprintf_P(crc_stdout, PSTR("fridge=%.1f\n"), fridge_setpoint/10.0);
     fprintf_P(crc_stdout, PSTR("fridge_diff=%.1f\n"), fridge_difference/10.0);
     fprintf_P(crc_stdout, PSTR("fridge_delay=%hu\n"), fridge_delay);
+    fprintf_P(crc_stdout, PSTR("overshoot_factor=%.1f\n"), overshoot_factor/10.0);
+    fprintf_P(crc_stdout, PSTR("overshoot_delay=%hu\n"), overshoot_delay);
     fprintf_P(crc_stdout, PSTR("fridge_status=%hhu\n"), is_fridge_on());
     fprintf_P(crc_stdout, PSTR("fridge_last_on=%lu\n"), fridge_on_clock.ticks);
     fprintf_P(crc_stdout, PSTR("fridge_last_off=%lu\n"), fridge_off_clock.ticks);
@@ -508,6 +514,8 @@ load_params()
         eeprom_read(fridge_setpoint, fridge_setpoint);
         eeprom_read(fridge_difference, fridge_difference);
         eeprom_read(fridge_delay, fridge_delay);
+        eeprom_read(overshoot_delay, overshoot_delay);
+        eeprom_read(overshoot_factor, overshoot_factor);
     }
 }
 
@@ -521,6 +529,8 @@ cmd_get_params()
     printf_P(PSTR("fridge %.1fº\n"), fridge_setpoint / 10.0f);
     printf_P(PSTR("fridge difference %.1fº\n"), fridge_difference / 10.0f);
     printf_P(PSTR("fridge_delay %hu\n"), fridge_delay);
+    printf_P(PSTR("overshoot factor %.1fº\n"), overshoot_factor / 10.0f);
+    printf_P(PSTR("overshoot delay %hu\n"), overshoot_delay);
     printf_P(PSTR("sensors %hhu (%hhu)\n"), 
             n_sensors, MAX_SENSORS);
     printf_P(PSTR("meas %hu (%hu)\n"),
@@ -575,6 +585,8 @@ set_initial_eeprom()
         eeprom_write(fridge_setpoint, fridge_setpoint);
         eeprom_write(fridge_difference, fridge_difference);
         eeprom_write(fridge_delay, fridge_delay);
+        eeprom_write(overshoot_delay, overshoot_delay);
+        eeprom_write(overshoot_factor, overshoot_factor);
         magic = EXPECT_MAGIC;
         eeprom_write(magic, magic);
     }
@@ -653,7 +665,57 @@ cmd_set_fridge_delay(char *params)
     }
     printf_P(PSTR("new fridge delay %hu\n"), fridge_delay);
 }
+
+static void
+cmd_set_overshoot_factor(char *params)
+{
+    float new_f = atof(params);
+    if (new_f <= 0 || new_f > 20)
+    {
+        printf_P(PSTR("Bad overshoot factor %f\n"), new_f);
+        return;
+    }
+
+    uint8_t old = overshoot_delay;
+
+    overshoot_delay = new_f * 10;
+    bool written = set_initial_eeprom();
+    if (!written)
+    {
+        if (old != overshoot_factor)
+        {
+            ATOMIC_BLOCK(ATOMIC_RESTORESTATE)
+            {
+                eeprom_write(overshoot_factor, overshoot_factor);
+            }
+        }
+    }
+    printf_P(PSTR("old factor %.1fº new factor %.1fº\n"), 
+            old / 10.0f, overshoot_factor / 10.0f);
+}
     
+static void
+cmd_set_overshoot_delay(char *params)
+{
+    uint16_t new_delay = atoi(params);
+    if (new_delay < 5)
+    {
+        printf_P(PSTR("Bad overshoot delay %d\n"), new_delay);
+        return;
+    }
+
+    overshoot_delay = new_delay;
+    bool written = set_initial_eeprom();
+    if (!written)
+    {
+        ATOMIC_BLOCK(ATOMIC_RESTORESTATE)
+        {
+            eeprom_write(overshoot_delay, overshoot_delay);
+        }
+    }
+    printf_P(PSTR("new overshoot delay %hu\n"), overshoot_delay);
+}
+
 static void
 cmd_awake()
 {
@@ -707,6 +769,14 @@ read_handler()
     else if (strncmp_P(readbuf, PSTR("fridge_delay "), 13) == 0)
     {
         cmd_set_fridge_delay(&readbuf[13]);
+    }
+    else if (strncmp_P(readbuf, PSTR("overshoot_delay "), 16) == 0)
+    {
+        cmd_set_overshoot_delay(&readbuf[16]);
+    }
+    else if (strncmp_P(readbuf, PSTR("overshoot_factor "), 17) == 0)
+    {
+        cmd_set_overshoot_factor(&readbuf[17]);
     }
     else if (strcmp_P(readbuf, PSTR("reset")) == 0)
     {
@@ -891,10 +961,9 @@ do_fridge()
         uint16_t on_time = now.ticks - fridge_on_clock.ticks;
 
         uint16_t overshoot = 0;
-        if (on_time > 1800)
+        if (on_time > overshoot_delay)
         {
-            // *10.0f for decicelcius
-            overshoot = OVERSHOOT_FACTOR * 10.0f * MIN(3600, on_time) / 3600.0;
+            overshoot = overshoot_factor * MIN(OVERSHOOT_MAX_DIV, on_time) / OVERSHOOT_MAX_DIV;
         }
 
         printf_P(PSTR("on_time %hu, overshoot %hu\n"), on_time, overshoot);
