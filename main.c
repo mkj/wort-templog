@@ -86,7 +86,7 @@ static uint16_t comms_wake = 600;
 static uint8_t wake_secs = 30;
 // decidegrees
 static int16_t fridge_setpoint = 180; // 18.0ºC
-static int16_t fridge_difference = 3; // 0.3ºC
+static uint16_t fridge_difference = 3; // 0.3ºC
 static uint16_t fridge_delay = 600; // seconds
 
 // ---- Atomic guards required accessing these variables
@@ -162,7 +162,7 @@ struct __attribute__ ((__packed__)) __eeprom_data {
     uint8_t wake_secs;
 
     int16_t fridge_setpoint; // decidegrees
-    uint8_t fridge_difference; // decidegrees
+    uint16_t fridge_difference; // decidegrees
     uint16_t fridge_delay;
 
 #if 0
