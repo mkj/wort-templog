@@ -90,7 +90,7 @@ def graph_png(start, length):
         if unit:
             try:
                 last_value = float(rrdtool.info(rrdfile)['ds[temp].last_ds'])
-                format_last_value = ('%f' % last_value).rstrip('0.') + unit
+                format_last_value = ('%f' % last_value).rstrip('0').rstrip('.') + unit
             except ValueError:
                 pass
         width = config.LINE_WIDTH
