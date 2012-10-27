@@ -20,6 +20,7 @@ import zlib
 import urllib
 import urllib2
 import logging
+import socket
 
 L = logging.info
 W = logging.warning
@@ -180,7 +181,7 @@ def do_comms(sock):
 
     next_wake = 600
     #next_wake = turn_off(sock)
-    sock.close()
+    #sock.close()
     return next_wake
 
 testcount = 0
@@ -198,6 +199,12 @@ def setup_logging():
             datefmt='%m/%d/%Y %I:%M:%S %p',
             level=logging.INFO)
 
+def get_net_socket(host, port):
+    s = socket.create_connection((host, port))
+    s.setblocking(False)
+    s.settimeout(1)
+    return s
+
 def main():
     setup_logging()
 
@@ -207,29 +214,26 @@ def main():
         utils.cheap_daemon()
 
     next_wake_time = 0
+
     while True:
         sock = None
         try:
-            sock = get_socket(config.BTADDR)
+            sock = get_net_socket(config.SERIAL_HOST, config.SERIAL_PORT)
         except Exception, e:
             #logging.exception("Error connecting")
             pass
-        if sock:
+
+        if not sock:
+            sleep_for(config.SLEEP_TIME)
+            continue
+
+        while True:
             try:
-                avr_wake = do_comms(sock)
-                next_wake_time = time.time() + avr_wake
+                do_comms(sock)
+                sleep_for(config.SLEEP_TIME)
             except Exception, e:
                 logging.exception("Error in do_comms")
-
-        next_wake_interval = next_wake_time - time.time() + EXTRA_WAKEUP
-        sleep_time = config.SLEEP_TIME
-        if next_wake_interval > 0:
-            sleep_time = min(next_wake_interval, sleep_time)
-        if next_wake_interval < 0 and next_wake_interval > -30:
-            L("not sleeping, next_wake_interval overdue %f" % next_wake_interval)
-            continue
-        L("Sleeping for %d, next wake interval %f" % (sleep_time, next_wake_interval))
-        sleep_for(sleep_time)
+                break
 
 if __name__ == '__main__':
     main()
