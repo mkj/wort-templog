@@ -1,6 +1,8 @@
 # for server
 BTADDR = "00:12:03:27:70:88"
-SLEEP_TIME = 5
+SLEEP_TIME = 60
+SERIAL_HOST='home.example.com'
+SERIAL_PORT=1999
 
 DATA_PATH = '/home/matt/templog/web/data'
 
