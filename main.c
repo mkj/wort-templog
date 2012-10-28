@@ -157,7 +157,6 @@ static FILE *crc_stdout = &_crc_stdout;
 #define EXPECT_MAGIC 0x67c9
 
 struct __attribute__ ((__packed__)) __eeprom_data {
-    uint16_t magic;
     uint16_t measure_wake;
     uint16_t comms_wake;
     uint8_t wake_secs;
@@ -173,6 +172,8 @@ struct __attribute__ ((__packed__)) __eeprom_data {
     static uint8_t wort_id[ID_LEN];
     static uint8_t fridge_id[ID_LEN];
 #endif
+
+    uint16_t magic;
 };
 
 static const uint8_t fridge_id[ID_LEN] = 
@@ -676,9 +677,9 @@ cmd_set_overshoot_factor(char *params)
         return;
     }
 
-    uint8_t old = overshoot_delay;
+    uint8_t old = overshoot_factor;
 
-    overshoot_delay = new_f * 10;
+    overshoot_factor = new_f * 10;
     bool written = set_initial_eeprom();
     if (!written)
     {
