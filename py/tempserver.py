@@ -37,9 +37,6 @@ class Tempserver(object):
     def set_current(self, wort, fridge, ambient):
         current = (wort, fridge, ambient)
 
-    def uptime(self):
-        return utils.monotonic_time() - self.start_time()
-
     def now(self):
         return utils.monotonic_time()
 
