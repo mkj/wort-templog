@@ -1,14 +1,17 @@
 # -*- coding: utf-8 -*-
-from utils import L,W,E
+from utils import L,W,E,EX
 import config
+import gevent
 
-class Fridge(object):
+class Fridge(gevent.Greenlet):
 
     OVERSHOOT_MAX_DIV = 1800.0 # 30 mins
     FRIDGE_AIR_MIN_RANGE = 4 # ºC
     FRIDGE_AIR_MAX_RANGE = 4
 
-    def __init__(self):
+    def __init__(self, server):
+        gevent.Greenlet.__init__(self)
+        self.server = server
         self.setup_gpio()
         self.wort_valid_clock = 0
         self.fridge_on_clock = 0
@@ -45,22 +48,22 @@ class Fridge(object):
                 % (self.value_file.name, buf))
         return True
 
-    def run(self, server):
-
+    # greenlet subclassed
+    def _run(self):
         while True:
-            self.do(server)
+            self.do()
             gevent.sleep(config.FRIDGE_SLEEP)
 
-    def do(self, server):
+    def do(self)
         """ this is the main fridge control logic """
-        wort, fridge, ambient = server.current_temps()
+        wort, fridge = self.server.current_temps()
 
         fridge_min = params.fridge_setpoint - self.FRIDGE_AIR_MIN_RANGE
         fridge_max = params.fridge_setpoint + self.FRIDGE_AIR_MAX_RANGE
 
         wort_max = params.fridge_setpoint + params.fridge_difference
 
-        off_time = server.now() - self.fridge_off_clock
+        off_time = self.server.now() - self.fridge_off_clock
 
         if off_time < config.FRIDGE_DELAY:
             L("fridge skipping, too early")
@@ -68,10 +71,10 @@ class Fridge(object):
 
         # handle broken wort sensor
         if wort is not None:
-            self.wort_valid_clock = server.now()
+            self.wort_valid_clock = self.server.now()
         else:
             W("Invalid wort sensor")
-            invalid_time = server.now() - self.wort_valid_clock
+            invalid_time = self.server.now() - self.wort_valid_clock
             if invalid_time < config.FRIDGE_WORT_INVALID_TIME:
                 W("Has only been invalid for %d, waiting" % invalid_time)
                 return
@@ -81,7 +84,7 @@ class Fridge(object):
 
         if self.is_on():
             turn_off = False
-            on_time = server.now() - self.fridge_on_clock
+            on_time = self.server.now() - self.fridge_on_clock
 
             overshoot = 0
             if on_time > params.overshoot_delay:
@@ -96,14 +99,14 @@ class Fridge(object):
                     turn_off = True
             else:
                 # wort sensor is broken
-                if fridge is not None and last_fridge < fridge_min:
+                if fridge is not None and fridge < fridge_min:
                     W("fridge off fallback")
                     turn_off = True
 
             if turn_off:
                 L("Turning fridge off")
                 self.off()
-                self.fridge_off_clock = server.now()
+                self.fridge_off_clock = self.server.now()
 
         else:
             # fridge is off
@@ -121,4 +124,4 @@ class Fridge(object):
             if turn_on:
                 L("Turning fridge on")
                 self.on()
-                fridge_on_clock = server.now()
+                fridge_on_clock = self.server.now()
