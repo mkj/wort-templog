@@ -12,6 +12,10 @@ E = logging.error
 DEFAULT_TRIES = 3
 READLINE_SELECT_TIMEOUT = 1
 
+def EX(msg, *args, **kwargs):
+    kwargs['exc_info'] = True
+    logging.error(msg, *args, **kwargs)
+
 clock_gettime = None
 no_clock_gettime = True
 def monotonic_time():
