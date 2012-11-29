@@ -19,7 +19,7 @@ class Fridge(gevent.Greenlet):
 
     def setup_gpio(self):
         dir_fn = '%s/direction' % config.FRIDGE_GPIO
-        with f = open(dir_fn, 'w'):
+        with open(dir_fn, 'w') as f:
             f.write('low')
         val_fn = '%s/value' % config.FRIDGE_GPIO
         self.value_file = f.open(val_fn, 'r+')
@@ -54,9 +54,11 @@ class Fridge(gevent.Greenlet):
             self.do()
             gevent.sleep(config.FRIDGE_SLEEP)
 
-    def do(self)
+    def do(self):
         """ this is the main fridge control logic """
         wort, fridge = self.server.current_temps()
+
+        params = self.server.params
 
         fridge_min = params.fridge_setpoint - self.FRIDGE_AIR_MIN_RANGE
         fridge_max = params.fridge_setpoint + self.FRIDGE_AIR_MAX_RANGE
