@@ -126,4 +126,9 @@ def cheap_daemon():
         E("Bad fork()")
         sys.exit(1)
 
+def uptime():
+    try:
+        return float(open('/proc/uptime', 'r').read().split(' ', 1)[0])
+    except Exception, e:
+        return -1
 
