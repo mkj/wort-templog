@@ -146,23 +146,20 @@ def graph_png(start, length):
     #return tempf
     return tempf.read()
 
-def validate_values(measurements):
-    for m in measurements:
-        if m == 85:
-            yield 'U'
-        else:
-            yield '%f' % m
+def validate_value(m):
+    if m == 85:
+        yield 'U'
+    else:
+        yield '%f' % m
 
-def sensor_update(sensor_id, measurements, first_real_time, time_step):
+def sensor_update(sensor_id, measurements):
     try:
         open(sensor_rrd_path(sensor_id))
     except IOError, e:
         create_rrd(sensor_id)
 
     if measurements:
-        values = ['%d:%s' % p for p in 
-            zip((first_real_time + time_step*t for t in xrange(len(measurements))),
-                validate_values(measurements))]
+        values = ['%d:%s' % (t, validate_value(m)) for (t, m) in measurements]
 
         rrdfile = sensor_rrd_path(sensor_id)
         # XXX what to do here when it fails...
@@ -180,10 +177,10 @@ def sensor_update(sensor_id, measurements, first_real_time, time_step):
 def debug_file(mode='r'):
     return open('%s/debug.log' % config.DATA_PATH, mode)
 
-def record_debug(lines):
+def record_debug(params):
     f = debug_file('a+')
     f.write('===== %s =====\n' % time.strftime('%a, %d %b %Y %H:%M:%S'))
-    f.writelines(('%s\n' % s for s in lines))
+    json.dump(params, f, sort_keys=True, indent=4))
     f.flush()
     return f
 
@@ -206,70 +203,31 @@ def time_rem(name, entries):
     tick_secs = int(entries['tick_secs'])
     return val_ticks + float(val_rem) * tick_secs / tick_wake
 
-def parse(lines):
+def parse(params):
 
     start_time = time.time()
    
-    debugf = record_debug(lines)
+    debugf = record_debug(params)
 
-    entries = dict(l.split('=', 1) for l in lines)
-    if len(entries) != len(lines):
-        raise Exception("Keys are not unique")
+    remote_now = params['now']
 
-    if 'sensors' not in entries:
-        # only debug info, it's been recorded
-        return
+    time_diff = start_time - remote_now
 
-    num_sensors = int(entries['sensors'])
-    num_measurements = int(entries['measurements'])
+    # readings is [ ({sensorname: value, ...}, time), ... ]
+    readings = params['readings']
 
-    sensors = [entries['sensor_id%d' % n] for n in xrange(num_sensors)]
+    # measurements is {sensorname: [(time, value), ...], ...}
+    measurements = {}
+    for rs, t in readings:
+        real_t = t + time_diff
+        for s, v in rs.iteritems():
+            measurements.getdefault(s, []).append((real_t, v))
 
-    meas = []
-    for s in sensors:
-        meas.append([])
+    # one-off measurements here
+    measurements['fridge_on'] = [ (time.time(), params['fridge_on']) ]
 
-    for n in xrange(num_measurements):
-        vals = [convert_ds18b20_12bit(x) for x in entries["meas%d" % n].strip().split()]
-        if len(vals) != num_sensors:
-            raise Exception("Wrong number of sensors for measurement %d" % n)
-        # we make an array of values for each sensor
-        for s in xrange(num_sensors):
-            meas[s].append(vals[s])
-
-    avr_now = time_rem('now', entries)
-    avr_first_time = time_rem('first_time', entries)
-    avr_comms_time = time_rem('comms_time', entries)
-    time_step = float(entries['time_step'])
-
-    debugf.write('now %f, comms_time %f, first_time %f, delta %f\n' %
-            (avr_now, avr_comms_time, avr_first_time, avr_now - avr_comms_time))
-
-    if 'avrtemp' in entries:
-        avrtemp = val_scale(int(entries['avrtemp']))
-        sensor_update('avrtemp', [avrtemp], time.time(), 1)
-
-    if 'voltage' in entries:
-        voltage = 0.001 * int(entries['voltage'])
-        sensor_update('voltage', [voltage], time.time(), 1)
-
-    if 'fridge_status' in entries:
-        fridge_on = int(entries['fridge_status'])
-        sensor_update('fridge_on', [fridge_on], time.time(), 1)
-
-    if 'fridge' in entries:
-        fridge_setpoint = float(entries['fridge'])
-        sensor_update('fridge_setpoint', [fridge_setpoint], time.time(), 1)
-    #sqlite 
-    # - time
-    # - voltage
-    # - boot time
-
-    first_real_time = time.time() - (avr_now - avr_first_time)
-
-    for sensor_id, measurements in zip(sensors, meas):
-        # XXX sqlite add
-        sensor_update(sensor_id, measurements, first_real_time, time_step)
+    for s, vs in measurements.iteritems():
+        sensor_update(s, vs)
 
     timedelta = time.time() - start_time
     debugf.write("Updated %d sensors in %.2f secs\n" % (len(sensors), timedelta))

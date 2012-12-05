@@ -45,7 +45,7 @@ class Uploader(gevent.Greenlet):
     def do():
         readings = self.server.take_readings()
         try:
-            tosend = self.get_to_send(readings)
+            tosend = self.get_tosend(readings)
             readings = None
             self.send(tosend)
         except Exception, e:
