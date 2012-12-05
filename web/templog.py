@@ -1,6 +1,7 @@
 #!/usr/bin/env python2.7
 
 import binascii
+import json
 import hmac
 import zlib
 from datetime import datetime, timedelta
@@ -19,15 +20,17 @@ ZOOM_SCALE = 2.0
 
 @route('/update', method='post')
 def update():
-    enc_lines = request.forms.lines
+    js_enc = request.forms.data
     mac = request.forms.hmac
 
-    if hmac.new(config.HMAC_KEY, enc_lines).hexdigest() != mac:
+    if hmac.new(config.HMAC_KEY, js_enc).hexdigest() != mac:
         raise bottle.HTTPError(code = 403, output = "Bad key")
 
-    lines = zlib.decompress(binascii.a2b_base64(enc_lines)).split('\n')
+    js = zlib.decompress(binascii.a2b_base64(js_enc))
 
-    log.parse(lines)
+    params = json.loads(js)
+
+    log.parse(params)
 
     return "OK"
 
