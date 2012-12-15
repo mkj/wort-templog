@@ -1,4 +1,4 @@
-#!/usr/bin/env python2.7
+#!/home/matt/templog/venv/bin/python
 
 import sys
 import os
@@ -39,7 +39,7 @@ class Tempserver(object):
         return utils.monotonic_time()
 
     def set_sensors(self, sensors):
-        if self.hasattr(self, 'sensors'):
+        if hasattr(self, 'sensors'):
             self.sensors.kill()
         self.sensors = sensors
         self.wort_name = sensors.wort_name()
@@ -64,7 +64,7 @@ class Tempserver(object):
 
     def current_temps(self):
         """ returns (wort_temp, fridge_temp) tuple """
-        return current
+        return self.current
 
 def setup_logging():
     logging.basicConfig(format='%(asctime)s %(message)s', 

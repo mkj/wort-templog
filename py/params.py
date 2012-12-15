@@ -2,6 +2,7 @@
 import collections
 import json
 import config
+from utils import W,L,E,EX
 
 _FIELD_DEFAULTS = {
     'fridge_setpoint': 16,
@@ -27,7 +28,11 @@ class Params(dict):
 
     def load(self, f = None):
         if not f:
-            f = file(config.PARAMS_FILE, 'r')
+            try:
+                f = file(config.PARAMS_FILE, 'r')
+            except IOError, e:
+                W("Missing parameter file, using defaults. %s", e)
+                return
         u = json.load(f)
         for k in u:
             if k not in self:
