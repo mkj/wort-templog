@@ -22,7 +22,7 @@ class Fridge(gevent.Greenlet):
         with open(dir_fn, 'w') as f:
             f.write('low')
         val_fn = '%s/value' % config.FRIDGE_GPIO
-        self.value_file = f.open(val_fn, 'r+')
+        self.value_file = open(val_fn, 'r+')
 
     def turn(self, value):
         self.value_file.seek(0)

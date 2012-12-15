@@ -1,6 +1,7 @@
 #!/usr/bin/env python2.7
 
 import gevent
+import gevent.threadpool
 import config
 import re
 from utils import L,W,E,EX
@@ -12,23 +13,29 @@ class DS18B20s(gevent.Greenlet):
     def __init__(self, server):
         gevent.Greenlet.__init__(self)
         self.server = server
-        # XXX set up paths
-        # XXX set up drain etc
+        self.readthread = gevent.threadpool.ThreadPool(1)
+        self.master_dir = config.SENSOR_BASE_DIR
 
     def _run(self):
         while True:
             self.do()
             gevent.sleep(config.SENSOR_SLEEP)
 
-    def sensor_path(self, s):
-        return os.path.join(self.master_dir, s)
+    def read_wait(self, f):
+        # handles a blocking file read with a gevent threadpool. A
+        # real python thread performs the read while other gevent
+        # greenlets keep running.
+        # the ds18b20 takes ~750ms to read, which is noticable
+        # interactively.
+        return self.readthread.apply(lambda: f.read)
 
-    def do_sensor_name(self, s, contents = None):
+    def do_sensor(self, s, contents = None):
+        """ contents can be set by the caller for testing """
         try:
             if contents is None:
-                fn = os.path.join(self.sensor_path(s), 'w1_slave')
+                fn = os.path.join(self.master_dir, s, 'w1_slave')
                 f = open(fn, 'r')
-                contents = f.read()
+                contents = self.read_wait(f)
             match = self.THERM_RE.match(contents)
             if match is None:
                 return None
@@ -49,8 +56,8 @@ class DS18B20s(gevent.Greenlet):
 
     def sensor_names(self):
         """ Returns a sequence of sensorname """
-        return [d for d in os.listdir(self.master_dir) if
-            os.stat(sensor_path(d)).st_mode & stat.S_ISDIR]
+        slaves_path = os.path.join(self.master_dir, "w1_master_slaves")
+        return open(slaves_path, 'r').split()
 
     def wort_name(self):
         return config.WORT_NAME
