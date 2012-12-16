@@ -15,7 +15,7 @@ class Fridge(gevent.Greenlet):
         self.setup_gpio()
         self.wort_valid_clock = 0
         self.fridge_on_clock = 0
-        self.fridge_off_clock = 0
+        self.fridge_off_clock = server.now()
 
     def setup_gpio(self):
         dir_fn = '%s/direction' % config.FRIDGE_GPIO

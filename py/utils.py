@@ -5,6 +5,7 @@ import time
 import select
 import logging
 
+D = logging.debug
 L = logging.info
 W = logging.warning
 E = logging.error
