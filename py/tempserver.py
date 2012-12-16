@@ -2,10 +2,13 @@
 
 import sys
 import os
+import logging
+
 import gevent
 import gevent.monkey
 
 import utils
+from utils import L,D,EX,W
 import fridge
 import config
 import sensor_ds18b20
@@ -16,21 +19,32 @@ class Tempserver(object):
     def __init__(self):
         self.readings = []
         self.current = (None, None)
+        self.fridge = None
 
         # don't patch os, fork() is used by daemonize
         gevent.monkey.patch_all(os=False, thread=False)
 
-        self.start_time = self.now()
-
+    def __enter__(self):
         self.params = params.Params()
-        self.params.load()
-
         self.fridge = fridge.Fridge(self)
-        self.fridge.start()
-
+        self.params.load()
         self.set_sensors(sensor_ds18b20.DS18B20s(self))
+        return self
+
+    def __exit__(self, exc_type, exc_value, traceback):
+        L("Exiting, cleanup handler");
+        self.fridge.off()
 
     def run(self):
+
+        if self.fridge is None:
+            raise Exception("Tempserver.run() must be within 'with Tempserver() as server'")
+
+        # XXX do these go here or in __enter_() ?
+        self.start_time = self.now()
+        self.fridge.start()
+        self.sensors.start()
+
         # won't return.
         while True:
             gevent.sleep(60)
@@ -69,15 +83,15 @@ class Tempserver(object):
 def setup_logging():
     logging.basicConfig(format='%(asctime)s %(message)s', 
             datefmt='%m/%d/%Y %I:%M:%S %p',
-            level=logging.INFO)
+            level=logging.DEBUG)
 
 def main():
-    server = Tempserver()
+    setup_logging()
 
     if '--daemon' in sys.argv:
         utils.cheap_daemon()
-
-    server.run()
+    with Tempserver() as server:
+        server.run()
 
 if __name__ == '__main__':
     main()

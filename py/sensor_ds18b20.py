@@ -1,10 +1,13 @@
 #!/usr/bin/env python2.7
 
+import os
+import re
+
 import gevent
 import gevent.threadpool
+
 import config
-import re
-from utils import L,W,E,EX
+from utils import D,L,W,E,EX
 
 class DS18B20s(gevent.Greenlet):
 
@@ -27,20 +30,24 @@ class DS18B20s(gevent.Greenlet):
         # greenlets keep running.
         # the ds18b20 takes ~750ms to read, which is noticable
         # interactively.
-        return self.readthread.apply(lambda: f.read)
+        return self.readthread.apply(f.read)
 
     def do_sensor(self, s, contents = None):
         """ contents can be set by the caller for testing """
+        D("dosensor %s" % s)
         try:
             if contents is None:
                 fn = os.path.join(self.master_dir, s, 'w1_slave')
                 f = open(fn, 'r')
                 contents = self.read_wait(f)
+
             match = self.THERM_RE.match(contents)
             if match is None:
+                D("no match")
                 return None
-            temp = int(match.groups(1)[0])
-            return temp / 1000.0
+            temp = int(match.groups(1)[0]) / 1000.0
+            D("returning %f" % temp)
+            return temp
         except Exception, e:
             EX("Problem reading sensor '%s': %s" % (s, str(e)))
             return None
@@ -48,7 +55,7 @@ class DS18B20s(gevent.Greenlet):
     def do(self):
         vals = {}
         for n in self.sensor_names():
-                value = do_sensor(n)
+                value = self.do_sensor(n)
                 if value is not None:
                     vals[n] = value
 
@@ -57,7 +64,9 @@ class DS18B20s(gevent.Greenlet):
     def sensor_names(self):
         """ Returns a sequence of sensorname """
         slaves_path = os.path.join(self.master_dir, "w1_master_slaves")
-        return open(slaves_path, 'r').split()
+        names = open(slaves_path, 'r').read().split()
+        D("returning names %s" % names)
+        return names
 
     def wort_name(self):
         return config.WORT_NAME
