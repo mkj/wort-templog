@@ -19,6 +19,19 @@ class DS18B20s(gevent.Greenlet):
         self.readthread = gevent.threadpool.ThreadPool(1)
         self.master_dir = config.SENSOR_BASE_DIR
 
+    def do(self):
+        vals = {}
+        for n in self.sensor_names():
+                value = self.do_sensor(n)
+                if value is not None:
+                    vals[n] = value
+
+        itemp = self.do_internal()
+        if itemp:
+            vals['internal'] = itemp
+
+        self.server.add_reading(vals)
+
     def _run(self):
         while True:
             self.do()
@@ -52,14 +65,13 @@ class DS18B20s(gevent.Greenlet):
             EX("Problem reading sensor '%s': %s" % (s, str(e)))
             return None
 
-    def do(self):
-        vals = {}
-        for n in self.sensor_names():
-                value = self.do_sensor(n)
-                if value is not None:
-                    vals[n] = value
-
-        self.server.add_reading(vals)
+    def do_internal(self):
+        try:
+            return int(open(config.INTERNAL_TEMPERATURE, 'r').read()) / 1000.0
+        except Exception, e:
+            EX("Problem reading internal sensor: %s" % str(e))
+            return None
+        
 
     def sensor_names(self):
         """ Returns a sequence of sensorname """
