@@ -60,9 +60,9 @@ l.put(0, 'a')
 l.put(1, 'b')
 l.put(4, 'b')
 
-#words = [word.strip() for word in file('/usr/share/dict/words', 'r')]
-#random.shuffle(words)
-words = file(sys.argv[1], 'r').read().split()
+words = [word.strip() for word in file('/usr/share/dict/words', 'r')]
+random.shuffle(words)
+#words = file(sys.argv[1], 'r').read().split()
 
 pos = 0
 last = ''
@@ -74,4 +74,4 @@ for word in words:
     l.put(0, last)
     l.put(16, word)
     last = word
-    time.sleep(0.1)
+    time.sleep(0.3)
