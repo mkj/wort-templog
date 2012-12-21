@@ -72,6 +72,7 @@ class Tempserver(object):
     # are float degrees
     def add_reading(self, reading):
         """ adds a reading at the current time """
+        D("add_reading(%s)" % str(reading))
         self.readings.append( (reading, self.now()))
         self.current = (reading.get(self.wort_name, None),
                     reading.get(self.fridge_name, None))
