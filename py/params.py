@@ -43,4 +43,5 @@ class Params(dict):
         if not f:
             f = file(config.PARAMS_FILE, 'w')
         json.dump(self, f, sort_keys=True, indent=4)
+        f.write('\n')
         f.flush()

@@ -47,7 +47,6 @@ class DS18B20s(gevent.Greenlet):
 
     def do_sensor(self, s, contents = None):
         """ contents can be set by the caller for testing """
-        D("dosensor %s" % s)
         try:
             if contents is None:
                 fn = os.path.join(self.master_dir, s, 'w1_slave')
@@ -59,7 +58,6 @@ class DS18B20s(gevent.Greenlet):
                 D("no match")
                 return None
             temp = int(match.groups(1)[0]) / 1000.0
-            D("returning %f" % temp)
             return temp
         except Exception, e:
             EX("Problem reading sensor '%s': %s" % (s, str(e)))

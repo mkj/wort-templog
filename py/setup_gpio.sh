@@ -2,13 +2,15 @@
 
 # this must run as root
 
-PIN=17
+PINS="17 7 24 25"
 GROUP=fridgeio
 
-echo $PIN > /sys/class/gpio/export
+for PIN in $PINS; do
+    echo $PIN > /sys/class/gpio/export
 
-for f in direction value; do
-    fn=/sys/devices/virtual/gpio/gpio$PIN/$f
-    chgrp $GROUP $fn
-    chmod g+rw $fn
+    for f in direction value; do
+        fn=/sys/devices/virtual/gpio/gpio$PIN/$f
+        chgrp $GROUP $fn
+        chmod g+rw $fn
+    done
 done
