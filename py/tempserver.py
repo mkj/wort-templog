@@ -47,7 +47,10 @@ class Tempserver(object):
 
         # won't return.
         while True:
-            gevent.sleep(60)
+            try:
+                gevent.sleep(60)
+            except KeyboardInterrupt:
+                break
 
     def now(self):
         return utils.monotonic_time()
