@@ -14,12 +14,13 @@ import traceback
 import datetime
 import struct
 import binascii
+import json
 from colorsys import hls_to_rgb
 
 import config
 
 def sensor_rrd_path(s):
-    return '%s/sensor_%s.rrd' % (config.DATA_PATH, s)
+    return '%s/sensor_%s.rrd' % (config.DATA_PATH, str(s))
 
 # returns (path, sensor_name) tuples
 def all_sensors():
@@ -44,6 +45,8 @@ def create_rrd(sensor_id):
                 '--step', '300',
                 'DS:temp:GAUGE:600:-100:500',
                 'RRA:AVERAGE:0.5:1:1051200']
+
+    print>>sys.stderr, sensor_rrd_path(sensor_id) 
 
     rrdtool.create(sensor_rrd_path(sensor_id), 
                 '--start', 'now-60d',
@@ -148,9 +151,9 @@ def graph_png(start, length):
 
 def validate_value(m):
     if m == 85:
-        yield 'U'
+        return 'U'
     else:
-        yield '%f' % m
+        return '%f' % m
 
 def sensor_update(sensor_id, measurements):
     try:
@@ -180,10 +183,9 @@ def debug_file(mode='r'):
 def record_debug(params):
     f = debug_file('a+')
     f.write('===== %s =====\n' % time.strftime('%a, %d %b %Y %H:%M:%S'))
-    json.dump(params, f, sort_keys=True, indent=4))
+    json.dump(params, f, sort_keys=True, indent=4)
     f.flush()
     return f
-
 
 def tail_debug_log():
     f = debug_file()
@@ -221,14 +223,15 @@ def parse(params):
     for rs, t in readings:
         real_t = t + time_diff
         for s, v in rs.iteritems():
-            measurements.getdefault(s, []).append((real_t, v))
+            measurements.setdefault(s, []).append((real_t, v))
 
     # one-off measurements here
     measurements['fridge_on'] = [ (time.time(), params['fridge_on']) ]
+    measurements['fridge_setpoint'] = [ (time.time(), params['fridge_setpoint']) ]
 
     for s, vs in measurements.iteritems():
         sensor_update(s, vs)
 
     timedelta = time.time() - start_time
-    debugf.write("Updated %d sensors in %.2f secs\n" % (len(sensors), timedelta))
+    debugf.write("Updated sensors in %.2f secs\n" % timedelta)
     debugf.flush()
