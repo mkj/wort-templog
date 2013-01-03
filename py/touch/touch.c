@@ -12,15 +12,24 @@
 #define GPIO_BASE                (BCM2708_PERI_BASE + 0x200000) /* GPIO controller */
 
 
+// for usleep
+#define _BSD_SOURCE
+
+// clock_gettime
+#define _POSIX_C_SOURCE 199309L
+
 #include <stdio.h>
 #include <string.h>
 #include <stdlib.h>
+#include <stdint.h>
 #include <dirent.h>
 #include <fcntl.h>
 #include <assert.h>
 #include <sys/mman.h>
 #include <sys/types.h>
 #include <sys/stat.h>
+#include <time.h>
+#include <sched.h>
 
 #include <unistd.h>
 
@@ -63,46 +72,86 @@ volatile unsigned *gpio;
 
 void setup_io();
 
+static int cmp_int(const void *a, const void *b)
+{
+    const int *ia = a;
+    const int *ib = b;
+    return (*ia - *ib);
+}
+
+static int clock_diff(struct timespec *t1, struct timespec *t2)
+{
+    uint64_t v1 = t1->tv_sec * 1000000000 + t1->tv_nsec;
+    uint64_t v2 = t2->tv_sec * 1000000000 + t2->tv_nsec;
+    return v2-v1;
+}
+
 int main(int argc, char **argv)
 { 
-  int g,rep;
-
-  // Set up gpi pointer for direct register access
-  setup_io();
-
-  // Switch GPIO 7..11 to output mode
-
- /************************************************************************\
-  * You are about to change the GPIO settings of your computer.          *
-  * Mess this up and it will stop working!                               *
-  * It might be a good idea to 'sync' before running this program        *
-  * so at least you still have your code changes written to the SD-card! *
- \************************************************************************/
-
+    // Set up gpi pointer for direct register access
+    setup_io();
 
     INP_GPIO(TOUCH_IN);
     INP_GPIO(TOUCH_OUT);
     OUT_GPIO(TOUCH_OUT);
 
-    int num = 1000;
-    int sum = 0;
+    const int num = 200;
+    const int margin = 30;
+    int print = 0;
+    if (argc > 1)
+    {
+        print = 1;
+    }
 
     while (1)
     {
-int n;
-sum = 0;
-    for (n = 0; n < num; n++)
-{
+        int vals[num];
+        int nsecs[num];
+        for (int n = 0; n < num; n++)
+        {
             GPIO_CLR(TOUCH_OUT);
-            usleep(1000);
+            struct timespec t = {.tv_nsec=20}; 
+            nanosleep(&t, NULL);
+            //sched_yield();
+            //usleep(1);
+            if (GPIO_GET(TOUCH_IN))
+            {
+                printf("short ");
+            }
             GPIO_SET(TOUCH_OUT);
+            int val = 0;
             while (GPIO_GET(TOUCH_IN) == 0)
             {
-                sum++;
+                val++;
+            }
+
+            vals[n] = val;
+        }
+        qsort(vals, num, sizeof(*vals), cmp_int);
+        int sum = 0, count = 0;
+        for (int n = 0; n < num; n++)
+        {
+            if (print)
+            {
+                printf("%3d ", vals[n]);
+                if (n == num-1 || n % 10 == 9)
+                {
+                    printf("\n");
+                }
+                if (n == margin || n == num-margin)
+                {
+                    printf("#");
+                }
+            }
+            if (n >= margin && n < (num-margin))
+            {
+                sum += vals[n];
+                count ++;
             }
         }
-    printf("total %f\n", (float)sum / num);
-}
+        printf("total %f from %d\n", (float)sum / count, count);
+        usleep(500000);
+    }
     return 0;
 
 } // main
@@ -113,41 +162,41 @@ sum = 0;
 //
 void setup_io()
 {
-   /* open /dev/mem */
-   if ((mem_fd = open("/dev/mem", O_RDWR|O_SYNC) ) < 0) {
-      printf("can't open /dev/mem \n");
-      exit (-1);
-   }
+    /* open /dev/mem */
+    if ((mem_fd = open("/dev/mem", O_RDWR|O_SYNC) ) < 0) {
+        printf("can't open /dev/mem \n");
+        exit (-1);
+    }
 
-   /* mmap GPIO */
+    /* mmap GPIO */
 
-   // Allocate MAP block
-   if ((gpio_mem = malloc(BLOCK_SIZE + (PAGE_SIZE-1))) == NULL) {
-      printf("allocation error \n");
-      exit (-1);
-   }
+    // Allocate MAP block
+    if ((gpio_mem = malloc(BLOCK_SIZE + (PAGE_SIZE-1))) == NULL) {
+        printf("allocation error \n");
+        exit (-1);
+    }
 
-   // Make sure pointer is on 4K boundary
-   if ((unsigned long)gpio_mem % PAGE_SIZE)
-     gpio_mem += PAGE_SIZE - ((unsigned long)gpio_mem % PAGE_SIZE);
+    // Make sure pointer is on 4K boundary
+    if ((unsigned long)gpio_mem % PAGE_SIZE)
+        gpio_mem += PAGE_SIZE - ((unsigned long)gpio_mem % PAGE_SIZE);
 
-   // Now map it
-   gpio_map = (unsigned char *)mmap(
-      (caddr_t)gpio_mem,
-      BLOCK_SIZE,
-      PROT_READ|PROT_WRITE,
-      MAP_SHARED|MAP_FIXED,
-      mem_fd,
-      GPIO_BASE
-   );
+    // Now map it
+    gpio_map = mmap(
+            (caddr_t)gpio_mem,
+            BLOCK_SIZE,
+            PROT_READ|PROT_WRITE,
+            MAP_SHARED|MAP_FIXED,
+            mem_fd,
+            GPIO_BASE
+            );
 
-   if ((long)gpio_map < 0) {
-      printf("mmap error %d\n", (int)gpio_map);
-      exit (-1);
-   }
+    if ((long)gpio_map < 0) {
+        printf("mmap error %d\n", (int)gpio_map);
+        exit (-1);
+    }
 
-   // Always use volatile pointer!
-   gpio = (volatile unsigned *)gpio_map;
+    // Always use volatile pointer!
+    gpio = (volatile unsigned *)gpio_map;
 
 
 } // setup_io
