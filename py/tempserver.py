@@ -13,6 +13,7 @@ import fridge
 import config
 import sensor_ds18b20
 import params
+import uploader
 
 
 class Tempserver(object):
@@ -27,6 +28,7 @@ class Tempserver(object):
     def __enter__(self):
         self.params = params.Params()
         self.fridge = fridge.Fridge(self)
+        self.uploader = uploader.Uploader(self)
         self.params.load()
         self.set_sensors(sensor_ds18b20.DS18B20s(self))
         return self
@@ -44,6 +46,7 @@ class Tempserver(object):
         self.start_time = self.now()
         self.fridge.start()
         self.sensors.start()
+        self.uploader.start()
 
         # won't return.
         while True:
@@ -69,7 +72,7 @@ class Tempserver(object):
 
     def pushfront(self, readings):
         """ used if a caller of take_readings() fails """
-        self.readings = pushback + self.readings
+        self.readings = readings + self.readings
 
     # a reading is a map of {sensorname: value}. temperatures
     # are float degrees
@@ -79,6 +82,8 @@ class Tempserver(object):
         self.readings.append( (reading, self.now()))
         self.current = (reading.get(self.wort_name, None),
                     reading.get(self.fridge_name, None))
+        if len(self.readings) > config.MAX_READINGS:
+            self.readings = self.readings[-config.MAX_READINGS:]
 
     def current_temps(self):
         """ returns (wort_temp, fridge_temp) tuple """

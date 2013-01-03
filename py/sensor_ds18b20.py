@@ -75,7 +75,6 @@ class DS18B20s(gevent.Greenlet):
         """ Returns a sequence of sensorname """
         slaves_path = os.path.join(self.master_dir, "w1_master_slaves")
         names = open(slaves_path, 'r').read().split()
-        D("returning names %s" % names)
         return names
 
     def wort_name(self):
