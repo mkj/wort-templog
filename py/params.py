@@ -1,6 +1,10 @@
 # -*- coding: utf-8 -*-
 import collections
 import json
+import signal
+
+import gevent
+
 import config
 from utils import W,L,E,EX
 
@@ -17,6 +21,7 @@ class Params(dict):
 
     def __init__(self):
         self.update(_FIELD_DEFAULTS)
+        gevent.signal(signal.SIGHUP, self.reload_signal)
 
     def __getattr__(self, k):
         return self[k]
@@ -33,7 +38,11 @@ class Params(dict):
             except IOError, e:
                 W("Missing parameter file, using defaults. %s", e)
                 return
-        u = json.load(f)
+        try:
+            u = json.load(f)
+        except Exception, e:
+            raise self.Error(e)
+
         for k in u:
             if k not in self:
                 raise self.Error("Unknown parameter %s=%s in file '%s'" % (str(k), str(u[k]), getattr(f, 'name', '???')))
@@ -45,3 +54,10 @@ class Params(dict):
         json.dump(self, f, sort_keys=True, indent=4)
         f.write('\n')
         f.flush()
+
+    def reload_signal(self):
+        try:
+            self.load()
+            L("Reloaded params")
+        except self.Error, e:
+            W("Problem reloading: %s" % str(e))
