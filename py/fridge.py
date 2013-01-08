@@ -126,4 +126,4 @@ class Fridge(gevent.Greenlet):
             if turn_on:
                 L("Turning fridge on")
                 self.on()
-                fridge_on_clock = self.server.now()
+                self.fridge_on_clock = self.server.now()
