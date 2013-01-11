@@ -14,6 +14,7 @@ _FIELD_DEFAULTS = {
     'fridge_difference': 0.2,
     'overshoot_delay': 720, # 12 minutes
     'overshoot_factor': 1, # ºC
+    'disabled': False,
     }
 
 class Params(dict):
