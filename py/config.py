@@ -1,3 +1,4 @@
+import os.path
 
 FRIDGE_SLEEP = 60
 SENSOR_SLEEP = 15
@@ -9,7 +10,7 @@ FRIDGE_WORT_INVALID_TIME = 300 # 5 mins
 # 12 hours
 MAX_READINGS = 12*60*60 / SENSOR_SLEEP
 
-PARAMS_FILE = './tempserver.conf'
+PARAMS_FILE = os.path.join(os.path.dirname(__file__), 'tempserver.conf')
 
 SENSOR_BASE_DIR = '/sys/devices/w1_bus_master1'
 FRIDGE_GPIO = '/sys/devices/virtual/gpio/gpio17'

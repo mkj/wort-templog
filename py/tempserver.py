@@ -6,6 +6,8 @@ import logging
 
 import gevent
 import gevent.monkey
+import lockfile
+import daemon
 
 import utils
 from utils import L,D,EX,W
@@ -94,13 +96,25 @@ def setup_logging():
             datefmt='%m/%d/%Y %I:%M:%S %p',
             level=logging.DEBUG)
 
+def start():
+    with Tempserver() as server:
+        server.run()
+
 def main():
     setup_logging()
 
+    pidpath = os.path.join(os.path.dirname(__file__), 'tempserver-lock')
+    pidf = lockfile.FileLock(pidpath, threaded=False)
+    pidf.acquire(0)
+
     if '--daemon' in sys.argv:
-        utils.cheap_daemon()
-    with Tempserver() as server:
-        server.run()
+        logpath = os.path.join(os.path.dirname(__file__), 'tempserver.log')
+        logf = open(logpath, 'a+')
+        with daemon.DaemonContext(pidfile=pidf, stdout=logf, stderr = logf):
+            start()
+    else:
+        with pidf:
+            start()
 
 if __name__ == '__main__':
     main()

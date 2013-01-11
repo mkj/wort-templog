@@ -50,6 +50,8 @@ class Fridge(gevent.Greenlet):
 
     # greenlet subclassed
     def _run(self):
+        if self.server.params.disabled:
+            L("Fridge is disabled")
         while True:
             self.do()
             gevent.sleep(config.FRIDGE_SLEEP)
@@ -69,6 +71,12 @@ class Fridge(gevent.Greenlet):
 
         if off_time < config.FRIDGE_DELAY:
             L("fridge skipping, too early")
+            return
+
+        if params.disabled:
+            if self.is_on():
+                L("Disabled, turning fridge off")
+                self.off()
             return
 
         # handle broken wort sensor
