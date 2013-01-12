@@ -57,7 +57,7 @@ class Uploader(gevent.Greenlet):
             nreadings = len(readings)
             self.send(tosend)
             readings = None
-            L("Sent updated %d readings" % nreadings)
+            D("Sent updated %d readings" % nreadings)
         except urllib2.HTTPError, e:
             E("Error in uploader: %s" % str(e))
         except Exception, e:
