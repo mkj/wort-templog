@@ -1,8 +1,15 @@
-import config
-
 import json
 import hmac
 import zlib
+import binascii
+import urllib
+import urllib2
+
+import gevent
+
+import config
+from utils import L,D,EX,W,E
+import utils
 
 class Uploader(gevent.Greenlet):
     def __init__(self, server):
@@ -10,6 +17,7 @@ class Uploader(gevent.Greenlet):
         self.server = server
 
     def _run(self):
+        gevent.sleep(5)
         while True:
             self.do()
             gevent.sleep(config.UPLOAD_SLEEP)
@@ -23,7 +31,7 @@ class Uploader(gevent.Greenlet):
         tosend['readings'] = readings
 
         tosend['wort_name'] = self.server.wort_name
-        tosend['fridge_name'] = self.server.wort_fridge_name
+        tosend['fridge_name'] = self.server.wort_name
 
         tosend.update(dict(self.server.params))
 
@@ -42,14 +50,18 @@ class Uploader(gevent.Greenlet):
         if result != 'OK':
             raise Exception("Server returned %s" % result)
 
-    def do():
+    def do(self):
         readings = self.server.take_readings()
         try:
             tosend = self.get_tosend(readings)
-            readings = None
+            nreadings = len(readings)
             self.send(tosend)
+            readings = None
+            D("Sent updated %d readings" % nreadings)
+        except urllib2.HTTPError, e:
+            E("Error in uploader: %s" % str(e))
         except Exception, e:
-            EX"Error in uploader: %s" % str(e))
+            EX("Error in uploader: %s" % str(e))
         finally:
             if readings is not None:
                 self.server.pushfront(readings)

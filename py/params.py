@@ -2,6 +2,7 @@
 import collections
 import json
 import signal
+import StringIO
 
 import gevent
 
@@ -13,6 +14,7 @@ _FIELD_DEFAULTS = {
     'fridge_difference': 0.2,
     'overshoot_delay': 720, # 12 minutes
     'overshoot_factor': 1, # ºC
+    'disabled': False,
     }
 
 class Params(dict):
@@ -48,6 +50,10 @@ class Params(dict):
                 raise self.Error("Unknown parameter %s=%s in file '%s'" % (str(k), str(u[k]), getattr(f, 'name', '???')))
         self.update(u)
 
+        L("Loaded parameters")
+        L(self.save_string())
+
+
     def save(self, f = None):
         if not f:
             f = file(config.PARAMS_FILE, 'w')
@@ -55,9 +61,14 @@ class Params(dict):
         f.write('\n')
         f.flush()
 
+    def save_string(self):
+        s = StringIO.StringIO()
+        self.save(s)
+        return s.getvalue()
+
     def reload_signal(self):
         try:
             self.load()
-            L("Reloaded params")
+            L("Reloaded.")
         except self.Error, e:
             W("Problem reloading: %s" % str(e))
