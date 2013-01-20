@@ -16,12 +16,16 @@ ZOOM = 1
 
 LINE_WIDTH = 2
 
-SENSOR_NAMES = {'sensor_28 CE B2 1A 03 00 00 99': "Fridge",
-    'sensor_28 CC C1 1A 03 00 00 D4': "Ambient",
-    'sensor_28 49 BC 1A 03 00 00 54': "Wort",
+SENSOR_NAMES = {'sensor_28 CE B2 1A 03 00 00 99': "Old Fridge",
+    'sensor_28 CC C1 1A 03 00 00 D4': "Old Ambient",
+    'sensor_28 49 BC 1A 03 00 00 54': "Old Wort",
     'sensor_voltage': 'Voltage',
     'sensor_fridge_setpoint': 'Setpoint',
     'sensor_fridge_on': 'Cool',
+    'sensor_28-0000042cf4dd': "Wort",
+    'sensor_28-0000042cccc4': "Fridge",
+    'sensor_28-0000042c6dbb': "Ambient",
+    'sensor_internal': "Processor",
     }
 
 SENSOR_COLOURS = {'Wort': 'e49222', 
@@ -30,6 +34,7 @@ SENSOR_COLOURS = {'Wort': 'e49222',
                 'Fridge': '4c40c8',
                 'Setpoint': '39c662',
                 'Cool': 'd7cedd',
+                'Processor': 'bf7a69',
                 }
 
 
