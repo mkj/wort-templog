@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-from utils import L,W,E,EX
+from utils import L,W,E,EX,D
 import config
 import gevent
 
@@ -50,6 +50,8 @@ class Fridge(gevent.Greenlet):
 
     # greenlet subclassed
     def _run(self):
+        if self.server.params.disabled:
+            L("Fridge is disabled")
         while True:
             self.do()
             gevent.sleep(config.FRIDGE_SLEEP)
@@ -69,6 +71,12 @@ class Fridge(gevent.Greenlet):
 
         if off_time < config.FRIDGE_DELAY:
             L("fridge skipping, too early")
+            return
+
+        if params.disabled:
+            if self.is_on():
+                L("Disabled, turning fridge off")
+                self.off()
             return
 
         # handle broken wort sensor
@@ -93,7 +101,7 @@ class Fridge(gevent.Greenlet):
                 overshoot = params.overshoot_factor \
                     * min(self.OVERSHOOT_MAX_DIV, on_time) \
                     / self.OVERSHOOT_MAX_DIV
-            L("on_time %(on_time)f, overshoot %(overshoot)f" % locals())
+            D("on_time %(on_time)f, overshoot %(overshoot)f" % locals())
 
             if wort is not None:
                 if (wort - overshoot) < params.fridge_setpoint:
@@ -115,7 +123,7 @@ class Fridge(gevent.Greenlet):
             turn_on = False
             if wort is not None:
                 if wort >= wort_max:
-                    L("Wort is too hot")
+                    L("Wort is too hot %f, max %f" % (wort, wort_max))
                     turn_on = True
             else:
                 # wort sensor is broken
@@ -126,4 +134,4 @@ class Fridge(gevent.Greenlet):
             if turn_on:
                 L("Turning fridge on")
                 self.on()
-                fridge_on_clock = self.server.now()
+                self.fridge_on_clock = self.server.now()
