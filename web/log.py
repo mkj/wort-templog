@@ -69,6 +69,15 @@ def graph_png(start, length):
 
     graph_args = []
     have_volts = False
+
+    ## volts = temp * volts_div + volts_shift
+    #volts_div = 10
+    #volts_shift = 2
+    volts_div = 1
+    volts_shift = 0
+
+    volts_mult = 1.0/volts_div
+
     for n, (rrdfile, sensor) in enumerate(rrds):
         unit = None
         if 'avrtemp' in sensor:
@@ -86,7 +95,7 @@ def graph_png(start, length):
             vname = 'temp%d' % n
             graph_args.append('DEF:raw%(vname)s=%(rrdfile)s:temp:AVERAGE' % locals())
             # limit max temp to 50
-            graph_args.append('CDEF:%(vname)s=raw%(vname)s,35,GT,UNKN,raw%(vname)s,0.1,*,2,+,IF' % locals())
+            graph_args.append('CDEF:%(vname)s=raw%(vname)s,38,GT,UNKN,raw%(vname)s,%(volts_mult)f,*,%(volts_shift)f,+,IF' % locals())
             unit = '<span face="Liberation Serif">º</span>C'
 
         format_last_value = None
@@ -124,7 +133,7 @@ def graph_png(start, length):
         '--slope-mode',
         '--border', '0',
 #        '--vertical-label', 'Voltage',
-        '--y-grid', '0.1:1',
+        '--y-grid', '%(volts_mult)f:1' % locals(),
         '--dynamic-labels',
         '--grid-dash', '1:0',
         '--zoom', str(config.ZOOM),
@@ -139,8 +148,9 @@ def graph_png(start, length):
     args += ['--font', 'DEFAULT:12:%s' % config.GRAPH_FONT]
     args += ['--font', 'WATERMARK:10:%s' % config.GRAPH_FONT]
     if have_volts:
-        args += ['--right-axis', '10:-20', # matches the scalevolts CDEF above
-            '--right-axis-format', '%.0lf',
+        volts_shift_div = volts_div * volts_shift
+        args += ['--right-axis', '%(volts_div)f:-%(volts_shift_div)f' % locals(),
+#            '--right-axis-format', '%.0lf',
 #            '--right-axis-label', 'Temperature'
             ]
 
