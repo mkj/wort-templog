@@ -46,6 +46,8 @@ class Params(dict):
             raise self.Error(e)
 
         for k in u:
+            if k.startswith('_'):
+                continue
             if k not in self:
                 raise self.Error("Unknown parameter %s=%s in file '%s'" % (str(k), str(u[k]), getattr(f, 'name', '???')))
         self.update(u)
