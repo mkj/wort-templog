@@ -6,8 +6,8 @@ import gevent
 class Fridge(gevent.Greenlet):
 
     OVERSHOOT_MAX_DIV = 1800.0 # 30 mins
-    FRIDGE_AIR_MIN_RANGE = 4 # ºC
-    FRIDGE_AIR_MAX_RANGE = 4
+    FRIDGE_AIR_MIN_RANGE = 3 # ºC
+    FRIDGE_AIR_MAX_RANGE = 3
 
     def __init__(self, server):
         gevent.Greenlet.__init__(self)
@@ -65,6 +65,7 @@ class Fridge(gevent.Greenlet):
         fridge_min = params.fridge_setpoint - self.FRIDGE_AIR_MIN_RANGE
         fridge_max = params.fridge_setpoint + self.FRIDGE_AIR_MAX_RANGE
 
+        wort_min = params.fridge_setpoint
         wort_max = params.fridge_setpoint + params.fridge_difference
 
         off_time = self.server.now() - self.fridge_off_clock
@@ -103,14 +104,11 @@ class Fridge(gevent.Greenlet):
                     / self.OVERSHOOT_MAX_DIV
             D("on_time %(on_time)f, overshoot %(overshoot)f" % locals())
 
-            if wort is not None:
-                if (wort - overshoot) < params.fridge_setpoint:
-                    L("wort has cooled enough")
+            if wort is not None and (wort - overshoot) < params.fridge_setpoint:
+                    L("wort has cooled enough, %(wort)f" % locals() )
                     turn_off = True
-            else:
-                # wort sensor is broken
-                if fridge is not None and fridge < fridge_min:
-                    W("fridge off fallback")
+            elif fridge is not None and fridge < fridge_min:
+                    W("fridge off fallback, fridge %(fridge)f, min %(fridge_min)f" % locals())
                     turn_off = True
 
             if turn_off:
@@ -121,14 +119,11 @@ class Fridge(gevent.Greenlet):
         else:
             # fridge is off
             turn_on = False
-            if wort is not None:
-                if wort >= wort_max:
+            if wort is not None and wort >= wort_max:
                     L("Wort is too hot %f, max %f" % (wort, wort_max))
                     turn_on = True
-            else:
-                # wort sensor is broken
-                if fridge is not None and fridge >= fridge_max:
-                    W("frdge on fallback")
+            elif fridge is not None and fridge >= fridge_max:
+                    W("frdge on fallback, fridge %(fridge)f, max %(fridge_max)f" % locals())
                     turn_on = True
 
             if turn_on:
