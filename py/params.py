@@ -15,6 +15,7 @@ _FIELD_DEFAULTS = {
     'overshoot_delay': 720, # 12 minutes
     'overshoot_factor': 1, # ºC
     'disabled': False,
+    'nowort': False,
     }
 
 class Params(dict):
