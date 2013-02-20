@@ -104,7 +104,9 @@ class Fridge(gevent.Greenlet):
                     / self.OVERSHOOT_MAX_DIV
             D("on_time %(on_time)f, overshoot %(overshoot)f" % locals())
 
-            if wort is not None and (wort - overshoot) < params.fridge_setpoint:
+            if not params.nowort \
+                and wort is not None \
+                and (wort - overshoot) < params.fridge_setpoint:
                     L("wort has cooled enough, %(wort)f" % locals() )
                     turn_off = True
             elif fridge is not None and fridge < fridge_min:
@@ -119,7 +121,9 @@ class Fridge(gevent.Greenlet):
         else:
             # fridge is off
             turn_on = False
-            if wort is not None and wort >= wort_max:
+            if not params.nowort \
+                and wort is not None \
+                and wort >= wort_max:
                     L("Wort is too hot %f, max %f" % (wort, wort_max))
                     turn_on = True
             elif fridge is not None and fridge >= fridge_max:
