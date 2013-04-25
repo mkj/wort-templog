@@ -6,8 +6,6 @@ import gevent
 class Fridge(gevent.Greenlet):
 
     OVERSHOOT_MAX_DIV = 1800.0 # 30 mins
-    FRIDGE_AIR_MIN_RANGE = 3 # ºC
-    FRIDGE_AIR_MAX_RANGE = 3
 
     def __init__(self, server):
         gevent.Greenlet.__init__(self)
@@ -62,8 +60,8 @@ class Fridge(gevent.Greenlet):
 
         params = self.server.params
 
-        fridge_min = params.fridge_setpoint - self.FRIDGE_AIR_MIN_RANGE
-        fridge_max = params.fridge_setpoint + self.FRIDGE_AIR_MAX_RANGE
+        fridge_min = params.fridge_setpoint - params.fridge_range_lower
+        fridge_max = params.fridge_setpoint + params.fridge_range_upper
 
         wort_min = params.fridge_setpoint
         wort_max = params.fridge_setpoint + params.fridge_difference
