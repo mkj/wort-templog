@@ -16,6 +16,8 @@ _FIELD_DEFAULTS = {
     'overshoot_factor': 1, # ºC
     'disabled': False,
     'nowort': False,
+    'fridge_range_lower': 3,
+    'fridge_range_upper': 3,
     }
 
 class Params(dict):
