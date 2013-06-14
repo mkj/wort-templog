@@ -6,7 +6,7 @@ import logging
 
 import gevent
 import gevent.monkey
-import lockfile
+import lockfile.pidlockfile
 import daemon
 
 import utils
@@ -103,9 +103,23 @@ def start():
 def main():
     setup_logging()
 
-    pidpath = os.path.join(os.path.dirname(__file__), 'tempserver-lock')
-    pidf = lockfile.FileLock(pidpath, threaded=False)
-    pidf.acquire(0)
+    pidpath = os.path.join(os.path.dirname(__file__), 'tempserver.pid')
+    pidf = lockfile.pidlockfile.PIDLockFile(pidpath, threaded=False)
+    try:
+        pidf.acquire(0)
+        pidf.release()
+    except lockfile.AlreadyLocked, e:
+        pid = pidf.read_pid()
+        print>>sys.stderr, "Locked by PID %d" % pid
+        if pid > 0:
+            try:
+                os.kill(pid, 0)
+                # must still be running PID
+                raise e
+            except OSError:
+                # isn't still running, steal the lock
+                print>>sys.stderr, "Unlinking stale lockfile %s for pid %d" % (pidpath, pid)
+                pidf.break_lock()
 
     if '--daemon' in sys.argv:
         logpath = os.path.join(os.path.dirname(__file__), 'tempserver.log')
