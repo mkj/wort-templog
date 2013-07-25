@@ -58,6 +58,9 @@ class DS18B20s(gevent.Greenlet):
                 D("no match")
                 return None
             temp = int(match.groups(1)[0]) / 1000.0
+            if temp > 80:
+                E("Problem reading sensor '%s': %f" % (s, temp))
+                return None
             return temp
         except Exception, e:
             EX("Problem reading sensor '%s': %s" % (s, str(e)))
