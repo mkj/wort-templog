@@ -68,6 +68,9 @@ class Fridge(gevent.Greenlet):
 
         off_time = self.server.now() - self.fridge_off_clock
 
+        if wort is not None:
+            self.wort_valid_clock = self.server.now()
+
         if off_time < config.FRIDGE_DELAY:
             L("fridge skipping, too early")
             return
@@ -79,9 +82,8 @@ class Fridge(gevent.Greenlet):
             return
 
         # handle broken wort sensor
-        if wort is not None:
+        if wort is None:
             self.wort_valid_clock = self.server.now()
-        else:
             W("Invalid wort sensor")
             invalid_time = self.server.now() - self.wort_valid_clock
             if invalid_time < config.FRIDGE_WORT_INVALID_TIME:
@@ -109,6 +111,8 @@ class Fridge(gevent.Greenlet):
                     turn_off = True
             elif fridge is not None and fridge < fridge_min:
                     W("fridge off fallback, fridge %(fridge)f, min %(fridge_min)f" % locals())
+                    if wort is None:
+                        W("wort has been invalid for %d" % (self.server.now() - self.wort_valid_clock))
                     turn_off = True
 
             if turn_off:
