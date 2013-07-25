@@ -103,7 +103,8 @@ def start():
 def main():
     setup_logging()
 
-    pidpath = os.path.join(os.path.dirname(__file__), 'tempserver.pid')
+    heredir = os.path.abspath(os.path.dirname(__file__))
+    pidpath = os.path.join(heredir, 'tempserver.pid')
     pidf = lockfile.pidlockfile.PIDLockFile(pidpath, threaded=False)
     try:
         pidf.acquire(0)
