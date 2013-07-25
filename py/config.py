@@ -20,7 +20,8 @@ AMBIENT_NAME = '28-0000042c6dbb'
 INTERNAL_TEMPERATURE = '/sys/class/thermal/thermal_zone0/temp'
 
 HMAC_KEY = "a key"
-UPDATE_URL = 'https://matt.ucc.asn.au/test/templog/update'
+#UPDATE_URL = 'https://matt.ucc.asn.au/test/templog/update'
+UPDATE_URL = 'https://evil.ucc.asn.au/~matt/templog/update'
 
 try:
     from localconfig import *
