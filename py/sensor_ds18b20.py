@@ -77,7 +77,11 @@ class DS18B20s(gevent.Greenlet):
     def sensor_names(self):
         """ Returns a sequence of sensorname """
         slaves_path = os.path.join(self.master_dir, "w1_master_slaves")
-        names = open(slaves_path, 'r').read().split()
+        contents = open(slaves_path, 'r').read()
+        if 'not found' in contents:
+            E("No W1 sensors found")
+            return []
+        names = contents.split()
         return names
 
     def wort_name(self):
