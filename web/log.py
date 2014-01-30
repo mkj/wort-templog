@@ -78,6 +78,9 @@ def graph_png(start, length):
 
     volts_mult = 1.0/volts_div
 
+    # (title, sensorline) pairs.
+    sensor_lines = []
+
     for n, (rrdfile, sensor) in enumerate(rrds):
         unit = None
         if 'avrtemp' in sensor:
@@ -112,7 +115,11 @@ def graph_png(start, length):
             print_legend = '%s (%s)' % (legend, format_last_value)
         else:
             print_legend = legend
-        graph_args.append('LINE%(width)f:%(vname)s#%(colour)s:%(print_legend)s' % locals())
+        sensor_lines.append( (legend, 'LINE%(width)f:%(vname)s#%(colour)s:%(print_legend)s' % locals()) )
+
+    sensor_lines.sort(key = lambda (legend, line): "Wort" in legend)
+
+    graph_args += (line for (legend, line) in sensor_lines)
 
     end = int(start+length)
     start = int(start)
