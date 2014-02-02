@@ -1,0 +1,195 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+<html xmlns="http://www.w3.org/1999/xhtml" xml:lang="en">
+<head>
+<meta http-equiv="Content-Type" content="text/html; charset=utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1,maximum-scale=8,minimum-scale=0.1">
+<style type="text/css"><!--
+
+span.no_selection {
+    -webkit-user-select: none; // webkit (safari, chrome) browsers
+    -moz-user-select: none; // mozilla browsers
+    -khtml-user-select: none; // webkit (konqueror) browsers
+}
+
+body {
+	font-family: "sans-serif";
+}
+
+input {
+	border: 2px solid transparent;
+	border-radius: 4px;
+	background-color: white;
+	border-color: black;
+	padding: 0;
+	font-size: 80%;
+}
+
+input[type="button"] {
+	width: 4em;
+	height: 4em;
+	margin-left: 0.5em;
+}
+
+input[type="submit"] {
+	width: 10em;
+	height: 4em;
+	margin-top: 1em;
+	align: center;
+}
+
+input[type="text"] {
+	height: 4em;
+	text-align: center;
+}
+
+.onbutton {
+	background-color: #cdf;
+}
+
+.existing {
+	margin-top: 1em;
+	font-size: 70%;
+}
+
+//-->
+</style>
+<title></title>
+</head>
+
+<!-- Click on the graph to zoom in, click on the Y axis labels to zoom out -->
+
+<script>
+
+var down_re = /^down_/;
+var up_re = /^up_/;
+var yes_re = /^yes_/;
+var no_re = /^no_/;
+
+function change_value() {
+	var el = event.target;
+	var dir = 1;
+	if (down_re.test(el.name))
+	{
+		var sect = el.name.replace(down_re, '');
+		dir = -1;
+
+	}
+	if (up_re.test(el.name))
+	{
+		var sect = el.name.replace(up_re, '');
+	}
+
+	var textbox = document.getElementById("input_" + sect);
+	var amount = 0.1;
+	if (sect == "overshoot_delay")
+	{
+		amount = 60;
+	}
+
+	var val = Number(textbox.value);
+	textbox.value = val + (dir*amount);
+}
+
+function toggle() 
+{
+	var el = event.target;
+	if (yes_re.test(el.name))
+	{
+		var sect = el.name.replace(yes_re, '');
+		var val = "1";
+	}
+	if (no_re.test(el.name))
+	{
+		var sect = el.name.replace(no_re, '');
+		var val = "0";
+	}
+
+	var hidden = document.getElementById("input_" + sect);
+	hidden.value = val;
+
+	update_button(sect);
+}
+
+function update_button(sect) 
+{
+	var hidden = document.getElementById("input_" + sect);
+	var yesbutton = document.getElementById("yes_" + sect);
+	var nobutton = document.getElementById("no_" + sect);
+	yesbutton.className = yesbutton.className.replace("onbutton", "");
+	nobutton.className = nobutton.className.replace("onbutton", "");
+	if (hidden.value == "1")
+	{
+		yesbutton.className = yesbutton.className + " onbutton";
+	}
+	else
+	{
+		nobutton.className = nobutton.className + " onbutton";
+	}
+}
+
+function start()
+{
+	update_button("enabled");
+	update_button("wortonly");
+}
+
+</script>
+
+<body onload="start()">
+<form action="" method="get">
+
+<div>
+<span class="existing">Temperature <span id="existing_fridge_setpoint">20.2</span>º</span>
+<br/>
+<input type="text" id="input_fridge_setpoint" name="input_fridge_setpoint" value="20.2"/>
+<input type="button" name="down_fridge_setpoint" value="-" onclick="change_value()"/>
+<input type="button" name="up_fridge_setpoint" value="+" onclick="change_value()"/>
+</div>
+
+<div>
+<span class="existing">Enabled <span id="existing_enabled">Yes</span></span>
+<br/>
+<input type="hidden" id="input_enabled" name="input_enabled" value="0"/>
+<input type="button" id="no_enabled" name="no_enabled" value="No" onclick="toggle()"/>
+<input type="button" id="yes_enabled" name="yes_enabled" value="Yes" onclick="toggle()"/>
+</div>
+
+<div>
+<span class="existing">Wort Only <span id="existing_wortonly">Yes</span></span>
+<br/>
+<input type="hidden" id="input_wortonly" name="input_wortonly" value="0"/>
+<input type="button" id="no_wortonly" name="no_wortonly" value="No" onclick="toggle()"/>
+<input type="button" id="yes_wortonly" name="yes_wortonly" value="Yes" onclick="toggle()"/>
+</div>
+
+<div>
+<span class="existing">Allowed difference <span id="existing_fridge_difference">0.2</span>º</span>
+<br/>
+<input type="text" id="input_fridge_difference" name="input_fridge_difference" value="0.2"/>
+<input type="button" name="down_fridge_difference" value="-" onclick="change_value()"/>
+<input type="button" name="up_fridge_difference" value="+" onclick="change_value()"/>
+</div>
+
+<div>
+<span class="existing">Overshoot factor<span id="existing_overshoot_factor">0.5</span></span>
+<br/>
+<input type="text" id="input_overshoot_factor" name="input_overshoot_factor" value="0.5"/>
+<input type="button" name="down_overshoot_factor" value="-" onclick="change_value()"/>
+<input type="button" class="onbutton" name="up_overshoot_factor" value="+" onclick="change_value()"/>
+</div>
+
+<div>
+<span class="existing">Overshoot delay<span id="existing_overshoot_delay">0.5</span></span>
+<br/>
+<input type="text" id="input_overshoot_delay" name="input_overshoot_delay" value="0.5"/>
+<input type="button" name="down_overshoot_delay" value="-"/>
+<input type="button" name="up_overshoot_delay" value="+"/>
+</div>
+
+<div>
+<input type="submit" name="go" value="Go"/>
+</div>
+
+</form>
+</body>
+</html>
