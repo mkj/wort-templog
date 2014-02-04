@@ -260,7 +260,7 @@ def get_params():
         'overshoot_delay': 720, # 12 minutes
         'overshoot_factor': 1, # ºC
         'disabled': False,
-        'nowort': False,
+        'nowort': True,
         'fridge_range_lower': 3,
         'fridge_range_upper': 3,
         }
@@ -274,6 +274,14 @@ def get_params():
             kind = 'yesno'
         else:
             kind = 'number'
+            n['amount'] = 0.1;
+            if k == 'overshoot_delay':
+                n['unit'] = ' sec'
+                n['amount'] = 60
+            else:
+                n['unit'] = 'º'
         n['kind'] = kind
+        n['title'] = k
         r.append(n)
+
     return json.dumps(r, sort_keys=True, indent=4)
