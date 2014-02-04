@@ -252,3 +252,28 @@ def parse(params):
     timedelta = time.time() - start_time
     debugf.write("Updated sensors in %.2f secs\n" % timedelta)
     debugf.flush()
+
+def get_params():
+    _FIELD_DEFAULTS = {
+        'fridge_setpoint': 16,
+        'fridge_difference': 0.2,
+        'overshoot_delay': 720, # 12 minutes
+        'overshoot_factor': 1, # ºC
+        'disabled': False,
+        'nowort': False,
+        'fridge_range_lower': 3,
+        'fridge_range_upper': 3,
+        }
+
+    r = []
+    for k, v in _FIELD_DEFAULTS.iteritems():
+        n = {'name': k, 'value': v}
+        if type(v) is bool:
+            if v:
+                n['value'] = "true"
+            kind = 'yesno'
+        else:
+            kind = 'number'
+        n['kind'] = kind
+        r.append(n)
+    return json.dumps(r, sort_keys=True, indent=4)
