@@ -8,6 +8,7 @@ from datetime import datetime, timedelta
 import time
 import urllib
 import sys
+import os
 
 import bottle
 from bottle import route, request, response
@@ -43,6 +44,15 @@ def graph():
     response.set_header('Content-Type', 'image/png')
     start_epoch = time.mktime(start.timetuple())
     return log.graph_png(start_epoch, length_minutes * 60)
+
+@route('/set')
+def set():
+    return bottle.template('set', inline_data = log.get_params())
+
+@route('/set_current.json')
+def set_fresh():
+    response.set_header('Content-Type', 'application/javascript')
+    return log.get_current()
 
 @route('/')
 def top():
@@ -86,6 +96,20 @@ def top():
 def debuglog():
     response.set_header('Content-Type', 'text/plain')
     return log.tail_debug_log()
+
+@route('/env')
+def env():
+    response.set_header('Content-Type', 'text/plain')
+    return '\n'.join(("%s %s" % k) for k in  request.environ.items())
+    #return str(request.environ)
+    #yield "\n"
+    #var_lookup = environ['mod_ssl.var_lookup']
+    #return var_lookup("SSL_SERVER_I_DN_O")
+
+@bottle.get('/<filename:re:.*\.js>')
+def javascripts(filename):
+    return bottle.static_file(filename, root='static')
+
 
 def main():
     #bottle.debug(True)
