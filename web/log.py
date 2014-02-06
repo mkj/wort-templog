@@ -269,17 +269,17 @@ def get_params():
     for k, v in _FIELD_DEFAULTS.iteritems():
         n = {'name': k, 'value': v}
         if type(v) is bool:
-            if v:
-                n['value'] = "true"
             kind = 'yesno'
         else:
             kind = 'number'
-            n['amount'] = 0.1;
             if k == 'overshoot_delay':
                 n['unit'] = ' sec'
                 n['amount'] = 60
+                n['digits'] = 0;
             else:
                 n['unit'] = 'º'
+                n['amount'] = 0.1;
+                n['digits'] = 1;
         n['kind'] = kind
         n['title'] = k
         r.append(n)
