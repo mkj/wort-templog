@@ -9,12 +9,15 @@ import time
 import urllib
 import sys
 import os
+import traceback
+import fcntl
 
 import bottle
 from bottle import route, request, response
 
 import config
 import log
+import secure
 
 DATE_FORMAT = '%Y%m%d-%H.%M'
 ZOOM_SCALE = 2.0
@@ -47,7 +50,9 @@ def graph():
 
 @route('/set')
 def set():
-    return bottle.template('set', inline_data = log.get_params())
+    return bottle.template('set', 
+        inline_data = log.get_params(), 
+        csrf_blob = secure.get_csrf_blob())
 
 @route('/set_current.json')
 def set_fresh():
@@ -100,7 +105,8 @@ def debuglog():
 @route('/env')
 def env():
     response.set_header('Content-Type', 'text/plain')
-    return '\n'.join(("%s %s" % k) for k in  request.environ.items())
+    return '\n'.join(traceback.format_stack())
+    #return '\n'.join(("%s %s" % k) for k in  request.environ.items())
     #return str(request.environ)
     #yield "\n"
     #var_lookup = environ['mod_ssl.var_lookup']
@@ -108,8 +114,18 @@ def env():
 
 @bottle.get('/<filename:re:.*\.js>')
 def javascripts(filename):
+    response.set_header('Cache-Control', "public, max-age=1296000")
     return bottle.static_file(filename, root='static')
 
+@route('/setparams', method='post')
+def update():
+    post_json = json.loads(request.forms.data)
+
+    csrf_blob = post_json['csrf_blob']
+
+    return str(post_json['params'])
+
+secure.setup_csrf()
 
 def main():
     #bottle.debug(True)

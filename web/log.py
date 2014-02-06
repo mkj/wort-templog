@@ -285,3 +285,7 @@ def get_params():
         r.append(n)
 
     return json.dumps(r, sort_keys=True, indent=4)
+
+
+def get_csrf_blob(user_ident):
+    return "aaa"
