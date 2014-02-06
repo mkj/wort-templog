@@ -46,6 +46,11 @@ input[type="text"] {
     text-align: center;
 }
 
+#savebox {
+    align: center;
+    width: 100%;
+}
+
 .onbutton {
     background-color: #cdf;
 }
@@ -64,17 +69,6 @@ input[type="text"] {
 <title>Set templog</title>
 </head>
 
-<body>
-
-<section id="paramlist">
-</section>
-
-<div id="jsontest">
-</div>
-
-<input type="button" id="savebutton" value="Save"/>
-
-</body>
 
 <script type="html/num_input">
 <div id="{id}">
@@ -97,10 +91,11 @@ input[type="text"] {
 
 <script>
 
-function Setter(params) {
+function Setter(params, csrf_blob) {
     var self = $.observable(this);
 
     self.params = params;
+    self.csrf_blob = csrf_blob
 
     $.each(self.params, function(idx, param) {
         param.id = "param_id_" + idx;
@@ -128,17 +123,40 @@ function Setter(params) {
     }
 
     self.save = function() {
-        var j = JSON.stringify(self.params);
-        self.trigger("saved", j)
+        self.trigger("status", "Saving...")
+
+        var post_json = {};
+        post_json.csrf_blob = self.csrf_blob;
+        post_json.params =
+            self.params.map(function(v, idx, array) {
+                return {
+                    name: v.name,
+                    value: v.value
+                };
+            });
+
+        var post_data = {data: JSON.stringify(post_json)};
+
+        var req = $.ajax({type: "POST",
+            url: "setparams",
+            data: post_data});
+
+        req.done(function(data, status, hdr) {
+            self.trigger("status", "Saved")
+        });
+
+        req.fail(function(data, status, hdr) {
+            self.trigger("status", 
+                "Failed: " + status + "\n" + hdr.responseText)
+        });
     }
 }
 
 (function() { 'use strict';
 
 var params = {{!inline_data}};
-window.setter = new Setter(params);
-
-var root = $("#paramlist");
+var csrf_blob = "{{!csrf_blob}}";
+window.setter = new Setter(params, csrf_blob);
 
 var number_template = $("[type='html/num_input']").html();
 var button_template = $("[type='html/yesno_button']").html();
@@ -172,23 +190,24 @@ setter.on("edit", function(param)
     $("#oldvalue", el).toggleClass("modified", !same);
 });
 
-setter.on("saved", function(j) {
-    $("#jsontest").text(j);
-});
+setter.on("status", function(status) {
+    $('#status').text(status)
+})
 
+var root;
 
+window.onload = function() {
+    // clear list and add new ones
+    root = $("#paramlist");
 
-$.route(function(hash) {
-
-// clear list and add new ones
-root.empty() && $.each(setter.params, function (idx, p) {
-    add(p);
+    root.empty() && $.each(setter.params, function (idx, p) {
+        add(p);
+    })
 
     $("#savebutton").click(function() {
         setter.save();
     })
-})
-})
+}
 
 function set_text_state(el, param)
 {
@@ -255,5 +274,20 @@ function add(param)
 })()
 
 </script>
+
+<body>
+
+<section id="paramlist">
+</section>
+
+<div id="savebox">
+<input type="button" id="savebutton" value="Save"/>
+
+<div id="status">
+</div>
+</div>
+
+
+</body>
 
 </html>
