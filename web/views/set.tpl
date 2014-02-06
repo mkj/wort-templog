@@ -50,6 +50,11 @@ input[type="text"] {
     background-color: #cdf;
 }
 
+.modified {
+    color: #d00;
+    font-weight: bold;
+}
+
 .existing {
     margin-top: 1em;
     font-size: 70%;
@@ -73,7 +78,7 @@ input[type="text"] {
 
 <script type="html/num_input">
 <div id="{id}">
-<span class="existing">{title} <span id="existing_{name}">{oldvalue}</span>{unit}</span>
+<span class="existing">{title} <span id="oldvalue">{oldvaluetext}{unit}</span></span>
 <br/>
 <input type="text" class="input" name="input_{name}" />
 <input type="button" class="button_down" value="-"/>
@@ -83,7 +88,7 @@ input[type="text"] {
 
 <script type="html/yesno_button">
 <div id="{id}">
-<span class="existing">{title} <span id="existing_{name}">{oldvalue}</span></span>
+<span class="existing">{title} <span id="oldvalue">{oldvaluetext}</span></span>
 <br/>
 <input type="button" class="button_no" value="No"/>
 <input type="button" class="button_yes" value="Yes"/>
@@ -99,10 +104,19 @@ function Setter(params) {
 
     $.each(self.params, function(idx, param) {
         param.id = "param_id_" + idx;
-        param.oldvalue = param.value;
+        param.oldvalue = param.value
+        if (typeof(param.oldvalue) == "boolean")
+        {
+            param.oldvaluetext = param.oldvalue ? "Yes" : "No";
+        }
+        else
+        {
+            param.oldvaluetext = param.oldvalue;
+        }
     });
 
-    self.edit = function(param) {
+    self.edit = function(param, newvalue) {
+        param.value = newvalue;
         params[param.name] = param;
         self.trigger("edit", param);
     }
@@ -136,12 +150,26 @@ setter.on("edit", function(param)
     var el = $("#" + param.id);
     if (param.kind === "number")
     {
-        set_text_state(el, param.value);
+        set_text_state(el, param);
     }
     else if (param.kind === "yesno")
     {
         set_button_state(el, param.value);
     }
+    var same;
+    switch (typeof(param.oldvalue))
+    {
+        case "boolean":
+            same = ((!param.value) == (!param.oldvalue));
+            break;
+        case "number":
+            same = Math.abs(param.value - param.oldvalue) < 1e-3 * param.amount;
+            break;
+        default:
+            same = (param.value === param.oldvalue);
+    }
+
+    $("#oldvalue", el).toggleClass("modified", !same);
 });
 
 setter.on("saved", function(j) {
@@ -162,26 +190,17 @@ root.empty() && $.each(setter.params, function (idx, p) {
 })
 })
 
-function set_text_state(el, value)
+function set_text_state(el, param)
 {
     var input = $(".input", el);
-    input.text(value).val(value)
+    var s = Number(param.value).toFixed(param.digits)
+    input.text(s).val(s)
 }
 
 function set_button_state(el, value)
 {
-    var button_yes = $(".button_yes", el);
-    var button_no = $(".button_no", el);
-    if (value)
-    {
-        button_yes.addClass("onbutton");
-        button_no.removeClass("onbutton");
-    }
-    else
-    {
-        button_no.addClass("onbutton");
-        button_yes.removeClass("onbutton");
-    }
+    $(".button_yes", el).toggleClass("onbutton", value);
+    $(".button_no", el).toggleClass("onbutton", !value);
 }
 
 function add(param)
@@ -194,19 +213,24 @@ function add(param)
         input.keyup(function(e) {
             if (e.which == 13)
             {
-                param.value = Number(this.value);
-                setter.edit(param);
+                setter.edit(param, Number(this.value));
             }
+        });
+
+        input.blur(function(e) {
+            setter.edit(param, Number(this.value));
         });
 
         $(".button_up", el).click(function() {
             setter.adjust(param, 1);
+            this.blur()
         });
         $(".button_down", el).click(function() {
             setter.adjust(param, -1);
+            this.blur()
         });
 
-        set_text_state(el, param.value);
+        set_text_state(el, param);
     }
     else if (param.kind === "yesno")
     {
@@ -215,13 +239,13 @@ function add(param)
         var button_no = $(".button_no", el);
 
         button_yes.click(function() {
-            param.value = true;
-            setter.edit(param);
+            setter.edit(param, true);
+            this.blur()
         })
 
         button_no.click(function() {
-            param.value = false;
-            setter.edit(param);
+            setter.edit(param, false);
+            this.blur()
         })
 
         set_button_state(el, param.value);
