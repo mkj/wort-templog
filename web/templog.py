@@ -48,6 +48,14 @@ def graph():
     start_epoch = time.mktime(start.timetuple())
     return log.graph_png(start_epoch, length_minutes * 60)
 
+@route('/set/update', method='post')
+def update():
+    post_json = json.loads(request.forms.data)
+
+    csrf_blob = post_json['csrf_blob']
+
+    return str(post_json['params'])
+
 @route('/set')
 def set():
     return bottle.template('set', 
@@ -116,14 +124,6 @@ def env():
 def javascripts(filename):
     response.set_header('Cache-Control', "public, max-age=1296000")
     return bottle.static_file(filename, root='static')
-
-@route('/setparams', method='post')
-def update():
-    post_json = json.loads(request.forms.data)
-
-    csrf_blob = post_json['csrf_blob']
-
-    return str(post_json['params'])
 
 secure.setup_csrf()
 

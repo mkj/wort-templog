@@ -4,6 +4,7 @@
 <meta http-equiv="Content-Type" content="text/html; charset=utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1,maximum-scale=8,minimum-scale=0.1">
 <script src="jquery-2.1.0.min.js"></script>
+<script src="jquery.mobile.custom.min.js"></script>
 <script>
 %include riot.min.js
 </script>
@@ -41,7 +42,7 @@ input[type="submit"] {
     align: center;
 }
 
-input[type="text"] {
+input[type="text"], input[type="number"] {
     height: 4em;
     text-align: center;
 }
@@ -74,7 +75,7 @@ input[type="text"] {
 <div id="{id}">
 <span class="existing">{title} <span id="oldvalue">{oldvaluetext}{unit}</span></span>
 <br/>
-<input type="text" class="input" name="input_{name}" />
+<input type="number" class="input" name="input_{name}" />
 <input type="button" class="button_down" value="-"/>
 <input type="button" class="button_up" value="+"/>
 </div>
@@ -138,7 +139,7 @@ function Setter(params, csrf_blob) {
         var post_data = {data: JSON.stringify(post_json)};
 
         var req = $.ajax({type: "POST",
-            url: "setparams",
+            url: "set/update",
             data: post_data});
 
         req.done(function(data, status, hdr) {
@@ -207,6 +208,18 @@ window.onload = function() {
     $("#savebutton").click(function() {
         setter.save();
     })
+
+    var gofn = function() {
+        var r = '#';
+        r += (5+Math.floor(Math.random() * 5));
+        r += (5+Math.floor(Math.random() * 5));
+        r += (5+Math.floor(Math.random() * 5));
+        document.body.style.background = r;
+        this.value = r;
+    }
+    //$("#go").addEventListener("touchstart", gofn, false)
+    //$("#go").addEventListener("click", gofn, false)
+    $("#go").on("vmousedown", gofn);
 }
 
 function set_text_state(el, param)
@@ -240,11 +253,11 @@ function add(param)
             setter.edit(param, Number(this.value));
         });
 
-        $(".button_up", el).click(function() {
+        $(".button_up", el).on("vmousedown", function() {
             setter.adjust(param, 1);
             this.blur()
         });
-        $(".button_down", el).click(function() {
+        $(".button_down", el).on("vmousedown", function() {
             setter.adjust(param, -1);
             this.blur()
         });
@@ -257,12 +270,12 @@ function add(param)
         var button_yes = $(".button_yes", el);
         var button_no = $(".button_no", el);
 
-        button_yes.click(function() {
+        button_yes.on("vmousedown", function() {
             setter.edit(param, true);
             this.blur()
         })
 
-        button_no.click(function() {
+        button_no.on("vmousedown", function() {
             setter.edit(param, false);
             this.blur()
         })
@@ -273,9 +286,13 @@ function add(param)
 
 })()
 
+
+
 </script>
 
 <body>
+<input type="button" id="go" value="go"/>
+
 
 <section id="paramlist">
 </section>
