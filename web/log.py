@@ -252,3 +252,40 @@ def parse(params):
     timedelta = time.time() - start_time
     debugf.write("Updated sensors in %.2f secs\n" % timedelta)
     debugf.flush()
+
+def get_params():
+    _FIELD_DEFAULTS = {
+        'fridge_setpoint': 16,
+        'fridge_difference': 0.2,
+        'overshoot_delay': 720, # 12 minutes
+        'overshoot_factor': 1, # ºC
+        'disabled': False,
+        'nowort': True,
+        'fridge_range_lower': 3,
+        'fridge_range_upper': 3,
+        }
+
+    r = []
+    for k, v in _FIELD_DEFAULTS.iteritems():
+        n = {'name': k, 'value': v}
+        if type(v) is bool:
+            kind = 'yesno'
+        else:
+            kind = 'number'
+            if k == 'overshoot_delay':
+                n['unit'] = ' sec'
+                n['amount'] = 60
+                n['digits'] = 0;
+            else:
+                n['unit'] = 'º'
+                n['amount'] = 0.1;
+                n['digits'] = 1;
+        n['kind'] = kind
+        n['title'] = k
+        r.append(n)
+
+    return json.dumps(r, sort_keys=True, indent=4)
+
+
+def get_csrf_blob(user_ident):
+    return "aaa"

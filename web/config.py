@@ -44,6 +44,9 @@ GRAPH_FONT = "Prociono"
 # determine by zooming in an image viewer
 GRAPH_LEFT_MARGIN = 63
 
+# 1 hour
+CSRF_TIMEOUT = 3600
+
 try:
     from localconfig import *
 except ImportError:
