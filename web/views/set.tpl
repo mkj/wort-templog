@@ -2,7 +2,7 @@
 <html xmlns="http://www.w3.org/1999/xhtml" xml:lang="en">
 <head>
 <meta http-equiv="Content-Type" content="text/html; charset=utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1,maximum-scale=8,minimum-scale=0.1">
+<meta name="viewport" content="width=device-width, initial-scale=1,maximum-scale=1,minimum-scale=1">
 <script src="jquery-2.1.0.min.js"></script>
 <script src="jquery.mobile.custom.min.js"></script>
 <script>
@@ -17,7 +17,7 @@ span.no_selection {
 }
 
 body {
-    font-family: "sans-serif";
+    font-family: sans-serif;
 }
 
 input {
@@ -26,34 +26,45 @@ input {
     background-color: white;
     border-color: black;
     padding: 0;
-    font-size: 80%;
+    font-size: 30pt;
+    height: 34pt;
 }
 
 input[type="button"] {
-    width: 4em;
-    height: 4em;
-    margin-left: 0.5em;
+    width: 34pt;
+    margin-left: 4pt;
+    -webkit-appearance: none;
+    -moz-appearance: none;
+    background:#fff;
+    vertical-align: center;
 }
 
 input[type="submit"] {
-    width: 10em;
-    height: 4em;
     margin-top: 1em;
     align: center;
+    width: 10em;
 }
 
 input[type="text"], input[type="number"] {
-    height: 4em;
     text-align: center;
+    width: 4em;
 }
 
 #savebox {
-    align: center;
+    vertical-align: center;
     width: 100%;
 }
 
-.onbutton {
-    background-color: #cdf;
+input[type="button"].onbutton {
+    background: #ccc;
+}
+
+input[type="button"].yesno {
+    width: 2.5em;
+}
+
+input[type="button"]#savebutton {
+    width: 5em;
 }
 
 .modified {
@@ -62,8 +73,7 @@ input[type="text"], input[type="number"] {
 }
 
 .existing {
-    margin-top: 1em;
-    font-size: 70%;
+    margin-top: 10pt;
 }
 
 </style>
@@ -85,8 +95,8 @@ input[type="text"], input[type="number"] {
 <div id="{id}">
 <span class="existing">{title} <span id="oldvalue">{oldvaluetext}</span></span>
 <br/>
-<input type="button" class="button_no" value="No"/>
-<input type="button" class="button_yes" value="Yes"/>
+<input type="button" class="button_no yesno" value="No"/>
+<input type="button" class="button_yes yesno" value="Yes"/>
 </div>
 </script>
 
@@ -157,6 +167,7 @@ function Setter(params, csrf_blob) {
 
 var params = {{!inline_data}};
 var csrf_blob = "{{!csrf_blob}}";
+var allowed = {{allowed}};
 window.setter = new Setter(params, csrf_blob);
 
 var number_template = $("[type='html/num_input']").html();
@@ -205,21 +216,14 @@ window.onload = function() {
         add(p);
     })
 
+    if (!allowed) {
+        $("#savebutton").attr("disabled", true);
+        $('#status').text("No cert")
+    }
+
     $("#savebutton").click(function() {
         setter.save();
     })
-
-    var gofn = function() {
-        var r = '#';
-        r += (5+Math.floor(Math.random() * 5));
-        r += (5+Math.floor(Math.random() * 5));
-        r += (5+Math.floor(Math.random() * 5));
-        document.body.style.background = r;
-        this.value = r;
-    }
-    //$("#go").addEventListener("touchstart", gofn, false)
-    //$("#go").addEventListener("click", gofn, false)
-    $("#go").on("vmousedown", gofn);
 }
 
 function set_text_state(el, param)
@@ -291,18 +295,14 @@ function add(param)
 </script>
 
 <body>
-<input type="button" id="go" value="go"/>
-
 
 <section id="paramlist">
 </section>
 
-<div id="savebox">
+<span id="savebox">
 <input type="button" id="savebutton" value="Save"/>
-
-<div id="status">
-</div>
-</div>
+<span id="status"></span>
+</span>
 
 
 </body>

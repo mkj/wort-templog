@@ -4,13 +4,27 @@ import fcntl
 import hmac
 import binascii
 import sys
+import hashlib
+
+import bottle
 
 import config
 
-__all__ = ["get_csrf_blob", "check_csrf_blob", "setup_csrf"]
+__all__ = ["get_csrf_blob", "check_csrf_blob", "setup_csrf", "get_user_hash"]
+
+HASH=hashlib.sha1
 
 def get_user_hash():
-    return "aaa"
+    if bottle.request.environ.get('SSL_CLIENT_VERIFY', '') != 'GENEROUS':
+        return 'FAILVERIFY'
+    blob = bottle.request.environ.get('SSL_CLIENT_CERT')
+    if not blob:
+        return 'NOCERT'
+
+    b64 = ''.join(l for l in blob.split('\n')
+        if not l.startswith('-'))
+
+    return HASH(binascii.a2b_base64(b64)).hexdigest()
 
 def setup_csrf():
     NONCE_SIZE=16
