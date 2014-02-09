@@ -8,6 +8,8 @@ DATA_PATH = '/home/matt/templog/web/data'
 
 HMAC_KEY = 'a hmac key' # override in local config file
 
+ALLOWED_USERS = [] # local config. list of sha1 hashes of client ssl keys
+
 UPDATE_URL = 'http://evil.ucc.asn.au/~matt/templog/update'
 
 GRAPH_WIDTH = 1200

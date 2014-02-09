@@ -58,9 +58,11 @@ def update():
 
 @route('/set')
 def set():
+    allowed = ["false", "true"][secure.get_user_hash() in config.ALLOWED_USERS]
     return bottle.template('set', 
         inline_data = log.get_params(), 
-        csrf_blob = secure.get_csrf_blob())
+        csrf_blob = secure.get_csrf_blob(),
+        allowed = allowed)
 
 @route('/set_current.json')
 def set_fresh():
@@ -113,8 +115,8 @@ def debuglog():
 @route('/env')
 def env():
     response.set_header('Content-Type', 'text/plain')
-    return '\n'.join(traceback.format_stack())
-    #return '\n'.join(("%s %s" % k) for k in  request.environ.items())
+    #return '\n'.join(traceback.format_stack())
+    return '\n'.join(("%s %s" % k) for k in  request.environ.items())
     #return str(request.environ)
     #yield "\n"
     #var_lookup = environ['mod_ssl.var_lookup']
