@@ -15,7 +15,8 @@ __all__ = ["get_csrf_blob", "check_csrf_blob", "setup_csrf", "get_user_hash"]
 HASH=hashlib.sha1
 
 def get_user_hash():
-    if bottle.request.environ.get('SSL_CLIENT_VERIFY', '') != 'GENEROUS':
+    verify = bottle.request.environ.get('SSL_CLIENT_VERIFY', '')
+    if not (verify == 'GENEROUS' or verify == 'SUCCESS'):
         return 'FAILVERIFY'
     blob = bottle.request.environ.get('SSL_CLIENT_CERT')
     if not blob:

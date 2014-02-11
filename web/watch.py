@@ -27,8 +27,6 @@ def main():
 		pattern = os.path.basename(g)
 		dirpatterns.setdefault(d, []).append(pattern)
 
-	print(dirpatterns)
-
 	watchpatterns = {}
 	for d, patterns in dirpatterns.items():
 
@@ -46,12 +44,10 @@ def main():
 		if event.name is None:
 			return
 
-		print("%s %s " % (event.name, event.maskname))
 		patterns = watchpatterns[event.wd]
 		for p in patterns:
-			print(p)
 			if fnmatch.fnmatch(event.name, p):
-				print("matched %s" % p)
+				print("matched %s %s" % (event.name, p, event.maskname))
 				os.utime(touchf, None)
 
 	n = pyinotify.Notifier(watcher, triggered)
