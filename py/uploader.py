@@ -33,7 +33,7 @@ class Uploader(gevent.Greenlet):
         tosend['wort_name'] = self.server.wort_name
         tosend['fridge_name'] = self.server.wort_name
 
-        tosend.update(dict(self.server.params))
+        tosend['current_params'] = dict(self.server.params)
 
         tosend['start_time'] = self.server.start_time
         tosend['uptime'] = utils.uptime()
