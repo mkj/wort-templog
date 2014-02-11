@@ -15,6 +15,7 @@ import datetime
 import struct
 import binascii
 import json
+import subprocess
 from colorsys import hls_to_rgb
 
 import config
@@ -269,24 +270,25 @@ def parse(params):
     debugf.write("Updated sensors in %.2f secs\n" % timedelta)
     debugf.flush()
 
+_FIELD_DEFAULTS = {
+    'fridge_setpoint': 16,
+    'fridge_difference': 0.2,
+    'overshoot_delay': 720, # 12 minutes
+    'overshoot_factor': 1, # ºC
+    'disabled': False,
+    'nowort': True,
+    'fridge_range_lower': 3,
+    'fridge_range_upper': 3,
+    }
+
 def get_params():
-    _FIELD_DEFAULTS = {
-        'fridge_setpoint': 16,
-        'fridge_difference': 0.2,
-        'overshoot_delay': 720, # 12 minutes
-        'overshoot_factor': 1, # ºC
-        'disabled': False,
-        'nowort': True,
-        'fridge_range_lower': 3,
-        'fridge_range_upper': 3,
-        }
 
     r = []
 
     vals = read_current_params()
 
     for k, v in _FIELD_DEFAULTS.iteritems():
-        n = {'name': k, 'value': vals[k]}
+        n = {'name': k, 'value': type(v)(vals[k])}
         if type(v) is bool:
             kind = 'yesno'
         else:
@@ -305,6 +307,54 @@ def get_params():
 
     return json.dumps(r, sort_keys=True, indent=4)
 
+def send_params(params):
+    # 'templog_receive' is ignored due to authorized_keys
+    # restrictions
+    args = [config.SSH_PROG, '-i', config.SSH_KEYFILE,
+        config.SSH_HOST, 'templog_receive']
+    try:
+        p = subprocess.Popen(args, stdin=subprocess.PIPE, stdout=subprocess.PIPE)
+        (out, err) = p.communicate(json.dumps(params))
+    except OSError, e:
+        print>>sys.stderr, e
+        return "Failed update"
 
-def get_csrf_blob(user_ident):
-    return "aaa"
+    if 'Good Update' in out:
+        return True
+
+    print>>sys.stderr, "Strange return from update:"
+    print>>sys.stderr, out
+    return "Unexpected update result"
+
+def same_type(a, b):
+    ta = type(a)
+    tb = type(b)
+
+    if ta == int:
+        ta = float
+    if tb == int:
+        tb = float
+
+    return (ta == tb)
+
+def update_params(p):
+    params = {}
+    for i in p:
+        params[i['name']] = i['value']
+
+    if params.viewkeys() != _FIELD_DEFAULTS.viewkeys():
+        diff = params.viewkeys() ^ _FIELD_DEFAULTS.viewkeys()
+        return "Key mismatch, difference %s" % str(diff)
+
+    for k, v in params.items():
+        if not same_type(v, _FIELD_DEFAULTS[k]):
+            return "Bad type for %s, %s vs %s" % (k , type(v), type(_FIELD_DEFAULTS[k]))
+
+    ret = send_params(params) 
+    if ret is not True:
+        return "Failed sending params: %s" % ret
+
+    return True
+
+
+
