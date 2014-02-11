@@ -18,6 +18,7 @@ from bottle import route, request, response
 import config
 import log
 import secure
+import atomicfile
 
 DATE_FORMAT = '%Y%m%d-%H.%M'
 ZOOM_SCALE = 2.0

@@ -18,6 +18,7 @@ import json
 from colorsys import hls_to_rgb
 
 import config
+import atomicfile
 
 def sensor_rrd_path(s):
     return '%s/sensor_%s.rrd' % (config.DATA_PATH, str(s))
@@ -161,7 +162,7 @@ def graph_png(start, length):
 #            '--right-axis-label', 'Temperature'
             ]
 
-	print>>sys.stderr, ' '.join("'%s'" % s for s in args)
+	#print>>sys.stderr, ' '.join("'%s'" % s for s in args)
     rrdtool.graph(*args)
     #return tempf
     return tempf.read()
@@ -222,6 +223,18 @@ def time_rem(name, entries):
     tick_secs = int(entries['tick_secs'])
     return val_ticks + float(val_rem) * tick_secs / tick_wake
 
+def write_current_params(current_params):
+    out = {}
+    out['params'] = current_params
+    out['time'] = time.time()
+    atomicfile.AtomicFile("%s/current_params.txt" % config.DATA_PATH).write(
+        json.dumps(out, sort_keys=True, indent=4)+'\n')
+
+def read_current_params():
+    p = atomicfile.AtomicFile("%s/current_params.txt" % config.DATA_PATH).read()
+    dat = json.loads(p)
+    return dat['params']
+
 def parse(params):
 
     start_time = time.time()
@@ -243,8 +256,11 @@ def parse(params):
             measurements.setdefault(s, []).append((real_t, v))
 
     # one-off measurements here
+    current_params = params['current_params']
     measurements['fridge_on'] = [ (time.time(), params['fridge_on']) ]
-    measurements['fridge_setpoint'] = [ (time.time(), params['fridge_setpoint']) ]
+    measurements['fridge_setpoint'] = [ (time.time(), current_params['fridge_setpoint']) ]
+
+    write_current_params(current_params)
 
     for s, vs in measurements.iteritems():
         sensor_update(s, vs)
@@ -266,8 +282,11 @@ def get_params():
         }
 
     r = []
+
+    vals = read_current_params()
+
     for k, v in _FIELD_DEFAULTS.iteritems():
-        n = {'name': k, 'value': v}
+        n = {'name': k, 'value': vals[k]}
         if type(v) is bool:
             kind = 'yesno'
         else:

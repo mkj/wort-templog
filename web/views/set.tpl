@@ -257,11 +257,13 @@ function add(param)
             setter.edit(param, Number(this.value));
         });
 
-        $(".button_up", el).on("vmousedown", function() {
+        $(".button_up", el).on("vmousedown", function(e) {
+            e.preventDefault();
             setter.adjust(param, 1);
             this.blur()
         });
-        $(".button_down", el).on("vmousedown", function() {
+        $(".button_down", el).on("vmousedown", function(e) {
+            e.preventDefault();
             setter.adjust(param, -1);
             this.blur()
         });
@@ -274,12 +276,12 @@ function add(param)
         var button_yes = $(".button_yes", el);
         var button_no = $(".button_no", el);
 
-        button_yes.on("vmousedown", function() {
+        button_yes.on("vmousedown", function(e) {
             setter.edit(param, true);
             this.blur()
         })
 
-        button_no.on("vmousedown", function() {
+        button_no.on("vmousedown", function(e) {
             setter.edit(param, false);
             this.blur()
         })
