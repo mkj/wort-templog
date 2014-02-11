@@ -50,12 +50,21 @@ def graph():
     return log.graph_png(start_epoch, length_minutes * 60)
 
 @route('/set/update', method='post')
-def update():
+def set_update():
     post_json = json.loads(request.forms.data)
 
     csrf_blob = post_json['csrf_blob']
 
-    return str(post_json['params'])
+    if not secure.check_csrf_blob(csrf_blob):
+        bottle.response.status = 403
+        return "Bad csrf"
+
+    ret = log.update_params(post_json['params'])
+    if not ret is True:
+        bottle.response.status = 403
+        return ret
+        
+    return "Good"
 
 @route('/set')
 def set():
@@ -139,4 +148,3 @@ def main():
 if __name__ == '__main__':
     main()
     
-

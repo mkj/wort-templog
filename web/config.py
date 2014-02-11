@@ -4,11 +4,15 @@ SLEEP_TIME = 60
 SERIAL_HOST='home.example.com'
 SERIAL_PORT=1999
 
+
 DATA_PATH = '/home/matt/templog/web/data'
 
-HMAC_KEY = 'a hmac key' # override in local config file
-
-ALLOWED_USERS = [] # local config. list of sha1 hashes of client ssl keys
+# local config items
+HMAC_KEY = 'a hmac key' 
+ALLOWED_USERS = [] # list of sha1 hashes of client ssl keys
+SSH_HOST = 'remotehost'
+SSH_KEYFILE = '/home/matt/.ssh/somekey'
+SSH_PROG = 'ssh'
 
 UPDATE_URL = 'http://evil.ucc.asn.au/~matt/templog/update'
 

@@ -54,27 +54,33 @@ def get_csrf_blob():
 def check_csrf_blob(blob):
     toks = blob.split('-')
     if len(toks) != 3:
+        print>>sys.stderr, "wrong toks"
         return False
 
     user, expiry, mac = toks
     if user != get_user_hash():
+        print>>sys.stderr, "wrong user"
         return False
 
     try:
         exp = int(expiry)
     except ValueError:
+        print>>sys.stderr, "failed exp"
         return False
 
     if exp < 1000000000:
         return False
 
-    if exp > time.time():
+    if exp < time.time():
+        print>>sys.stderr, "expired %d %d" % (exp, time.time())
         return False
 
     check_content = "%s-%s" % (user, expiry)
-    check_mac = hmac.new(_csrf_key, content).hexdigest()
+    check_mac = hmac.new(_csrf_key, check_content).hexdigest()
     if mac == check_mac:
+        print>>sys.stderr, "good hmac"
         return True
 
+    print>>sys.stderr, "fail"
     return False
 

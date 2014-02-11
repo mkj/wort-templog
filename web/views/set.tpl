@@ -76,6 +76,10 @@ input[type="button"]#savebutton {
     margin-top: 10pt;
 }
 
+span.inputrow {
+    //vertical-align: center;
+}
+
 </style>
 <title>Set templog</title>
 </head>
@@ -85,9 +89,11 @@ input[type="button"]#savebutton {
 <div id="{id}">
 <span class="existing">{title} <span id="oldvalue">{oldvaluetext}{unit}</span></span>
 <br/>
+<span class="inputrow">
 <input type="number" class="input" name="input_{name}" />
 <input type="button" class="button_down" value="-"/>
 <input type="button" class="button_up" value="+"/>
+</span>
 </div>
 </script>
 
@@ -95,8 +101,10 @@ input[type="button"]#savebutton {
 <div id="{id}">
 <span class="existing">{title} <span id="oldvalue">{oldvaluetext}</span></span>
 <br/>
+<span class="inputrow">
 <input type="button" class="button_no yesno" value="No"/>
 <input type="button" class="button_yes yesno" value="Yes"/>
+</span>
 </div>
 </script>
 
@@ -158,7 +166,8 @@ function Setter(params, csrf_blob) {
 
         req.fail(function(data, status, hdr) {
             self.trigger("status", 
-                "Failed: " + status + "\n" + hdr.responseText)
+                "Failed: "  + data.status + ' '
+                + data.statusText + ' ' + data.responseText)
         });
     }
 }
