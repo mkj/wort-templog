@@ -44,8 +44,10 @@ def main():
             delete = False)
 
         t.write(json.dumps(new_params, sort_keys=True, indent=4)+'\n')
+        name = t.name
+        t.close()
 
-        os.rename(t.name, config.PARAMS_FILE)
+        os.rename(name, config.PARAMS_FILE)
     except Exception, e:
         return "Problem: %s" % e
 
