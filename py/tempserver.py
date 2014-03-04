@@ -3,6 +3,8 @@
 import sys
 import os
 import logging
+import time
+import signal
 
 import gevent
 import gevent.monkey
@@ -112,15 +114,32 @@ def main():
     except lockfile.AlreadyLocked, e:
         pid = pidf.read_pid()
         print>>sys.stderr, "Locked by PID %d" % pid
+        stale = False
         if pid > 0:
-            try:
-                os.kill(pid, 0)
-                # must still be running PID
-                raise e
-            except OSError:
-                # isn't still running, steal the lock
-                print>>sys.stderr, "Unlinking stale lockfile %s for pid %d" % (pidpath, pid)
-                pidf.break_lock()
+            if '--new' in sys.argv:
+                try:
+                    os.kill(pid, 0)
+                except OSError:
+                    stale = True
+
+                if not stale:
+                    print>>sys.stderr, "Stopping old tempserver pid %d" % pid
+                    os.kill(pid, signal.SIGTERM)
+                    time.sleep(2)
+                    pidf.acquire(0)
+                    pidf.release()
+            else:
+                try:
+                    os.kill(pid, 0)
+                    # must still be running PID
+                    raise e
+                except OSError:
+                    stale = True
+
+        if stale:
+            # isn't still running, steal the lock
+            print>>sys.stderr, "Unlinking stale lockfile %s for pid %d" % (pidpath, pid)
+            pidf.break_lock()
 
     if '--daemon' in sys.argv:
         logpath = os.path.join(os.path.dirname(__file__), 'tempserver.log')
