@@ -83,9 +83,8 @@ class Fridge(gevent.Greenlet):
 
         # handle broken wort sensor
         if wort is None:
-            self.wort_valid_clock = self.server.now()
-            W("Invalid wort sensor")
             invalid_time = self.server.now() - self.wort_valid_clock
+            W("Invalid wort sensor for %d secs" % invalid_time)
             if invalid_time < config.FRIDGE_WORT_INVALID_TIME:
                 W("Has only been invalid for %d, waiting" % invalid_time)
                 return
