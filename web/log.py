@@ -271,7 +271,7 @@ def parse(params):
     debugf.flush()
 
 _FIELD_DEFAULTS = {
-    'fridge_setpoint': 16,
+    'fridge_setpoint': 16.0,
     'fridge_difference': 0.2,
     'overshoot_delay': 720, # 12 minutes
     'overshoot_factor': 1, # ºC
