@@ -3,6 +3,8 @@
 import sys
 import os
 import logging
+import time
+import signal
 
 import gevent
 import gevent.monkey
@@ -106,21 +108,53 @@ def main():
     heredir = os.path.abspath(os.path.dirname(__file__))
     pidpath = os.path.join(heredir, 'tempserver.pid')
     pidf = lockfile.pidlockfile.PIDLockFile(pidpath, threaded=False)
+    do_hup = '--hup' in sys.argv
     try:
         pidf.acquire(0)
         pidf.release()
     except lockfile.AlreadyLocked, e:
         pid = pidf.read_pid()
-        print>>sys.stderr, "Locked by PID %d" % pid
-        if pid > 0:
+        if do_hup:
             try:
-                os.kill(pid, 0)
-                # must still be running PID
-                raise e
+                os.kill(pid, signal.SIGHUP)
+                print>>sys.stderr, "Sent SIGHUP to process %d" % pid
+                sys.exit(0)
             except OSError:
-                # isn't still running, steal the lock
-                print>>sys.stderr, "Unlinking stale lockfile %s for pid %d" % (pidpath, pid)
-                pidf.break_lock()
+                print>>sys.stderr, "Process %d isn't running?" % pid
+                sys.exit(1)
+
+        print>>sys.stderr, "Locked by PID %d" % pid
+    
+        stale = False
+        if pid > 0:
+            if '--new' in sys.argv:
+                try:
+                    os.kill(pid, 0)
+                except OSError:
+                    stale = True
+
+                if not stale:
+                    print>>sys.stderr, "Stopping old tempserver pid %d" % pid
+                    os.kill(pid, signal.SIGTERM)
+                    time.sleep(2)
+                    pidf.acquire(0)
+                    pidf.release()
+            else:
+                try:
+                    os.kill(pid, 0)
+                    # must still be running PID
+                    raise e
+                except OSError:
+                    stale = True
+
+        if stale:
+            # isn't still running, steal the lock
+            print>>sys.stderr, "Unlinking stale lockfile %s for pid %d" % (pidpath, pid)
+            pidf.break_lock()
+
+    if do_hup:
+        print>>sys.stderr, "Doesn't seem to be running"
+        sys.exit(1)
 
     if '--daemon' in sys.argv:
         logpath = os.path.join(os.path.dirname(__file__), 'tempserver.log')
