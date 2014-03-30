@@ -1,0 +1,20 @@
+Wort fermentation control.
+
+py/ code runs on a raspberry pi with ds18b20 sensors.
+Dependencies can be installed with pip from requirements.txt
+
+---
+
+web/ code is a Bottle web app for showing graphs and also
+controlling the  temperature from a phone-optimised UI
+
+---
+
+old/ is the previous version that ran on an avr talking over a serial bluetooth device
+with a separate internet-connected router relaying to the web interface.
+
+
+Matt Johnston
+matt@ucc.asn.au
+
+This code may be freely used, distributed, relicensed, and modified for any purpose.
