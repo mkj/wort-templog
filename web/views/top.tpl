@@ -7,6 +7,11 @@ span.no_selection {
     -moz-user-select: none; // mozilla browsers
     -khtml-user-select: none; // webkit (konqueror) browsers
 }
+
+span.codelink {
+ font-size: 70%;
+ text-align: right;
+}
 //-->
 </style>
 <title></title>
@@ -21,5 +26,6 @@ span.no_selection {
 <input type="hidden" name="end" value="{{end}}"/>
 <input type="hidden" name="zoom" value="yeah"/>
 </form>
+<span class="codelink">Click to zoom in, click the left axis to zoom out. <a href="https://secure.ucc.asn.au/hg/templog/file/tip">Source code</a> for the Raspberry Pi controller and this web interface</a></span>
 </body>
 </html>
