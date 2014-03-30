@@ -26,6 +26,6 @@ span.codelink {
 <input type="hidden" name="end" value="{{end}}"/>
 <input type="hidden" name="zoom" value="yeah"/>
 </form>
-<span class="codelink">Click to zoom in, click the left axis to zoom out. <a href="https://secure.ucc.asn.au/hg/templog/file/tip">Source code</a> for the Raspberry Pi controller and this web interface</a></span>
+<span class="codelink">Click to zoom in, click the left axis to zoom out. <a href="https://secure.ucc.asn.au/hg/templog/file/tip">Source code</a> for the Raspberry Pi controller and this web interface</a>. <a href="set">Adjustments</a> by phone.</span>
 </body>
 </html>
