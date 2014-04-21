@@ -47,7 +47,7 @@ def main():
 		patterns = watchpatterns[event.wd]
 		for p in patterns:
 			if fnmatch.fnmatch(event.name, p):
-				print("matched %s %s" % (event.name, p, event.maskname))
+				print("matched %s %s %s" % (event.name, p, event.maskname))
 				os.utime(touchf, None)
 
 	n = pyinotify.Notifier(watcher, triggered)
