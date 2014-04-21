@@ -83,6 +83,8 @@ def graph_png(start, length):
     # (title, sensorline) pairs.
     sensor_lines = []
 
+    wort_sensor = None
+    fridge_sensor = None
     for n, (rrdfile, sensor) in enumerate(rrds):
         unit = None
         if 'avrtemp' in sensor:
@@ -118,10 +120,26 @@ def graph_png(start, length):
         else:
             print_legend = legend
         sensor_lines.append( (legend, 'LINE%(width)f:%(vname)s#%(colour)s:%(print_legend)s' % locals()) )
+        if legend == 'Wort':
+            wort_sensor = vname
+        elif legend == 'Fridge':
+            fridge_sensor = vname
 
     sensor_lines.sort(key = lambda (legend, line): "Wort" in legend)
 
     graph_args += (line for (legend, line) in sensor_lines)
+
+    print>>sys.stderr, '\n'.join(graph_args)
+
+    # calculated bits
+    colour = '000000'
+    print_legend = 'Heat'
+    graph_args.append('CDEF:wortdel=%(wort_sensor)s,PREV(%(wort_sensor)s),-' % locals())
+    graph_args.append('CDEF:tempdel=%(wort_sensor)s,%(fridge_sensor)s,-' % locals())
+    graph_args.append('CDEF:fermheat=wortdel,80,*,tempdel,0.9,*,+' % locals())
+    graph_args.append('CDEF:trendfermheat=fermheat,10800,TRENDNAN' % locals())
+    graph_args.append('CDEF:limitfermheat=trendfermheat,5,+,11,MIN,2,MAX' % locals())
+    graph_args.append('LINE0.5:limitfermheat#%(colour)s:%(print_legend)s' % locals())
 
     end = int(start+length)
     start = int(start)
