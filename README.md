@@ -13,6 +13,8 @@ controlling the temperature from a phone-optimised UI
 
 https://evil.ucc.asn.au/~matt/templog/ is live
 
+![graph](templog.png)
+
 ---
 
 old/ is the previous version that ran on an avr talking over a serial bluetooth device
