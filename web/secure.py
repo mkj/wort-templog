@@ -1,3 +1,4 @@
+import re
 import os
 import time
 import fcntl
@@ -10,11 +11,29 @@ import bottle
 
 import config
 
-__all__ = ["get_csrf_blob", "check_csrf_blob", "setup_csrf", "get_user_hash"]
+__all__ = ["get_csrf_blob", "check_csrf_blob", "setup_csrf", "get_user_hash",
+"check_user_hash"]
 
 HASH=hashlib.sha1
 
+CLEAN_RE = re.compile('[^a-z0-9A-Z]')
+
+def clean_hash(h):
+    return CLEAN_RE.sub('', h.lower())
+
 def get_user_hash():
+    """
+    Uses the following apache config. 
+    Needs a separate port or IP to no-certificate SSL, SNI isn't good enough.
+
+    <location /~matt/templog/set>
+    Require all granted
+    SSLVerifyClient optional_no_ca
+    SSLVerifyDepth 1
+    SSLOptions +StdEnvVars +ExportCertData +OptRenegotiate
+    </location>
+    """
+
     verify = bottle.request.environ.get('SSL_CLIENT_VERIFY', '')
     if not (verify == 'GENEROUS' or verify == 'SUCCESS'):
         return 'FAILVERIFY'
@@ -26,6 +45,13 @@ def get_user_hash():
         if not l.startswith('-'))
 
     return HASH(binascii.a2b_base64(b64)).hexdigest()
+
+def check_user_hash(allowed_users):
+    current_hash = clean_hash(get_user_hash())
+    for a in allowed_users:
+        if current_hash == clean_hash(a):
+            return True
+    return False
 
 def setup_csrf():
     NONCE_SIZE=16

@@ -328,7 +328,8 @@ def get_params():
 
 def send_params(params):
     # 'templog_receive' is ignored due to authorized_keys
-    # restrictions
+    # restrictions. the rpi has authorized_keys with
+    # command="/home/matt/templog/venv/bin/python /home/matt/templog/py/receive.py",no-pty,no-port-forwarding,no-x11-forwarding,no-agent-forwarding ssh-rsa AAAAB3NzaC....
     args = [config.SSH_PROG, '-i', config.SSH_KEYFILE,
         config.SSH_HOST, 'templog_receive']
     try:
