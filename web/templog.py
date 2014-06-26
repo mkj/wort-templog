@@ -68,7 +68,7 @@ def set_update():
 
 @route('/set')
 def set():
-    allowed = ["false", "true"][secure.get_user_hash() in config.ALLOWED_USERS]
+    allowed = ["false", "true"][secure.check_user_hash(config.ALLOWED_USERS)]
     response.set_header('Cache-Control', 'no-cache')
     return bottle.template('set', 
         inline_data = log.get_params(), 
