@@ -23,5 +23,3 @@ with a separate internet-connected router relaying to the web interface.
 
 Matt Johnston
 matt@ucc.asn.au
-
-This code may be freely used, distributed, relicensed, and modified for any purpose.
