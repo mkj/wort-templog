@@ -110,9 +110,9 @@ def main():
     pidf = lockfile.pidlockfile.PIDLockFile(pidpath, threaded=False)
     do_hup = '--hup' in sys.argv
     try:
-        pidf.acquire(0)
+        pidf.acquire(1)
         pidf.release()
-    except lockfile.AlreadyLocked, e:
+    except (lockfile.AlreadyLocked, lockfile.LockTimeout), e:
         pid = pidf.read_pid()
         if do_hup:
             try:
