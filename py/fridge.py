@@ -52,7 +52,7 @@ class Fridge(gevent.Greenlet):
             L("Fridge is disabled")
         while True:
             self.do()
-            gevent.sleep(config.FRIDGE_SLEEP)
+            self.server.sleep(config.FRIDGE_SLEEP)
 
     def do(self):
         """ this is the main fridge control logic """
