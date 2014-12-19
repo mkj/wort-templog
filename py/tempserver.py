@@ -25,6 +25,7 @@ class Tempserver(object):
         self.readings = []
         self.current = (None, None)
         self.fridge = None
+        self._wakeup = gevent.event.Event()
 
         # don't patch os, fork() is used by daemonize
         gevent.monkey.patch_all(os=False, thread=False)
@@ -35,6 +36,7 @@ class Tempserver(object):
         self.uploader = uploader.Uploader(self)
         self.params.load()
         self.set_sensors(sensor_ds18b20.DS18B20s(self))
+        gevent.signal(signal.SIGHUP, self._reload_signal)
         return self
 
     def __exit__(self, exc_type, exc_value, traceback):
@@ -92,6 +94,19 @@ class Tempserver(object):
     def current_temps(self):
         """ returns (wort_temp, fridge_temp) tuple """
         return self.current
+
+    def sleep(self, timeout):
+        """ sleeps for timeout seconds, though wakes if the server's config is updated """
+        self._wakeup.wait(timeout)
+        
+    def _reload_signal(self):
+        try:
+            self.params.load()
+            L("Reloaded.")
+            self._wakeup.set()
+            self._wakeup.clear()
+        except self.Error, e:
+            W("Problem reloading: %s" % str(e))
 
 def setup_logging():
     logging.basicConfig(format='%(asctime)s %(message)s', 

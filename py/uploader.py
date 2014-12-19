@@ -23,7 +23,7 @@ class Uploader(gevent.Greenlet):
         gevent.sleep(5)
         while True:
             self.do()
-            gevent.sleep(config.UPLOAD_SLEEP)
+            self.server.sleep(config.UPLOAD_SLEEP)
 
     def get_tosend(self, readings):
         tosend = {}

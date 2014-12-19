@@ -26,7 +26,6 @@ class Params(dict):
 
     def __init__(self):
         self.update(_FIELD_DEFAULTS)
-        gevent.signal(signal.SIGHUP, self.reload_signal)
 
     def __getattr__(self, k):
         return self[k]
@@ -70,10 +69,3 @@ class Params(dict):
         s = StringIO.StringIO()
         self.save(s)
         return s.getvalue()
-
-    def reload_signal(self):
-        try:
-            self.load()
-            L("Reloaded.")
-        except self.Error, e:
-            W("Problem reloading: %s" % str(e))

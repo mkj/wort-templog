@@ -35,7 +35,7 @@ class DS18B20s(gevent.Greenlet):
     def _run(self):
         while True:
             self.do()
-            gevent.sleep(config.SENSOR_SLEEP)
+            self.server.sleep(config.SENSOR_SLEEP)
 
     def read_wait(self, f):
         # handles a blocking file read with a gevent threadpool. A
