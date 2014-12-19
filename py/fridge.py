@@ -75,7 +75,7 @@ class Fridge(gevent.Greenlet):
 
         # Safety to avoid bad things happening to the fridge motor (?)
         # When it turns off don't start up again for at least FRIDGE_DELAY
-        if self.is_off() and off_time < config.FRIDGE_DELAY:
+        if not self.is_on() and off_time < config.FRIDGE_DELAY:
             L("fridge skipping, too early")
             return
 
