@@ -13,13 +13,14 @@ class Fridge(gevent.Greenlet):
         self.setup_gpio()
         self.wort_valid_clock = 0
         self.fridge_on_clock = 0
-        self.fridge_off_clock = server.now()
+        self.off()
 
     def setup_gpio(self):
         dir_fn = '%s/direction' % config.FRIDGE_GPIO
         with open(dir_fn, 'w') as f:
             f.write('low')
         val_fn = '%s/value' % config.FRIDGE_GPIO
+        # XXX - Fridge should have __enter__/__exit__, close the file there.
         self.value_file = open(val_fn, 'r+')
 
     def turn(self, value):
@@ -35,6 +36,7 @@ class Fridge(gevent.Greenlet):
 
     def off(self):
         self.turn(False)
+        self.fridge_off_clock = self.server.now()
 
     def is_on(self):
         self.value_file.seek(0)
@@ -71,7 +73,9 @@ class Fridge(gevent.Greenlet):
         if wort is not None:
             self.wort_valid_clock = self.server.now()
 
-        if off_time < config.FRIDGE_DELAY:
+        # Safety to avoid bad things happening to the fridge motor (?)
+        # When it turns off don't start up again for at least FRIDGE_DELAY
+        if self.is_off() and off_time < config.FRIDGE_DELAY:
             L("fridge skipping, too early")
             return
 
@@ -116,7 +120,6 @@ class Fridge(gevent.Greenlet):
             if turn_off:
                 L("Turning fridge off")
                 self.off()
-                self.fridge_off_clock = self.server.now()
 
         else:
             # fridge is off

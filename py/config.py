@@ -1,13 +1,13 @@
 import os.path
 
-FRIDGE_SLEEP = 60
-SENSOR_SLEEP = 15
-UPLOAD_SLEEP = 80
+FRIDGE_SLEEP = 60 # this value works. may affect the algorithm
+SENSOR_SLEEP = 15 # same for this.
+UPLOAD_SLEEP = 83 # nice and prime
 
-FRIDGE_DELAY = 600 # 10 mins
+FRIDGE_DELAY = 600 # 10 mins, to avoid fridge damage from frequent cycling off/on
 FRIDGE_WORT_INVALID_TIME = 300 # 5 mins
 
-# 12 hours
+# 12 hours of "offline" readings stored
 MAX_READINGS = 12*60*60 / SENSOR_SLEEP
 
 PARAMS_FILE = os.path.join(os.path.dirname(__file__), 'tempserver.conf')
@@ -23,6 +23,7 @@ HMAC_KEY = "a key"
 #UPDATE_URL = 'https://matt.ucc.asn.au/test/templog/update'
 UPDATE_URL = 'https://evil.ucc.asn.au/~matt/templog/update'
 
+# site-local values overridden in localconfig, eg WORT_NAME, HMAC_KEY
 try:
     from localconfig import *
 except ImportError:
