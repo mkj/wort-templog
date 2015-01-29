@@ -1,6 +1,7 @@
 <!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
 <html xmlns="http://www.w3.org/1999/xhtml" xml:lang="en">
 <head>
+<title>Wort Temperature Log</title>
 <style type="text/css"><!--
 span.no_selection {
     -webkit-user-select: none; // webkit (safari, chrome) browsers
@@ -16,9 +17,6 @@ span.codelink {
 </style>
 <title></title>
 </head>
-
-<!-- Click on the graph to zoom in, click on the Y axis labels to zoom out -->
-
 <body>
 <form action="" method="get">
 <span class="no_selection"><input type="image" style="width: 1200px" src="graph.png?{{urlparams}}"/></span>
