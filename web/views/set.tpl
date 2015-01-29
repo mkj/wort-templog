@@ -123,6 +123,10 @@ function Setter(params, csrf_blob) {
         {
             param.oldvaluetext = param.oldvalue ? "Yes" : "No";
         }
+        else if (param.kind == "number")
+        {
+            param.oldvaluetext = Number(param.oldvalue).toFixed(param.digits)
+        }
         else
         {
             param.oldvaluetext = param.oldvalue;
