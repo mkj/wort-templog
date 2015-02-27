@@ -56,11 +56,10 @@ def check_user_hash(allowed_users):
 def setup_csrf():
     NONCE_SIZE=16
     global _csrf_fd, _csrf_key
-    _csrf_fd = open('%s/csrf.dat' % config.DATA_PATH, 'r+')
+    _csrf_fd = os.fdopen(os.open('%s/csrf.dat' % config.DATA_PATH, os.O_RDWR | os.O_CREAT, 0600), 'r+')
 
     try:
         fcntl.lockf(_csrf_fd, fcntl.LOCK_EX | fcntl.LOCK_NB)
-        os.fchmod(_csrf_fd.fileno(), 0600)
         _csrf_fd.write("%d-%s" % (os.getpid(), binascii.hexlify(os.urandom(NONCE_SIZE))))
         _csrf_fd.flush()
         _csrf_fd.seek(0)
