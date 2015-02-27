@@ -34,6 +34,9 @@ SENSOR_NAMES = {'sensor_28 CE B2 1A 03 00 00 99': "Old Fridge",
     'sensor_internal': "Processor",
     }
 
+# print legend for these ones
+LEGEND_NAMES = set(("Wort", "Fridge", "Ambient", "Setpoint"))
+
 SENSOR_COLOURS = {'Wort': 'e49222', 
                 'Ambient': '028b3d',
                 'Voltage': '7db5d3aa',
