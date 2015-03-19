@@ -48,7 +48,7 @@ class Uploader(gevent.Greenlet):
         js_enc = binascii.b2a_base64(zlib.compress(js))
         mac = hmac.new(config.HMAC_KEY, js_enc).hexdigest()
         send_data = {'data': js_enc, 'hmac': mac}
-        r = requests.post(config.UPDATE_URL, data=send_data)
+        r = requests.post(config.UPDATE_URL, data=send_data, timeout=60)
         result = r.text
         if result != 'OK':
             raise Exception("Server returned %s" % result)
