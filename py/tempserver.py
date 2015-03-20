@@ -5,9 +5,8 @@ import os
 import logging
 import time
 import signal
+import asyncio
 
-import gevent
-import gevent.monkey
 import lockfile.pidlockfile
 import daemon
 
@@ -25,10 +24,7 @@ class Tempserver(object):
         self.readings = []
         self.current = (None, None)
         self.fridge = None
-        self._wakeup = gevent.event.Event()
-
-        # don't patch os, fork() is used by daemonize
-        gevent.monkey.patch_all(os=False, thread=False)
+        self._wakeup = asyncio.Event()
 
     def __enter__(self):
         self.params = params.Params()
@@ -36,7 +32,7 @@ class Tempserver(object):
         self.uploader = uploader.Uploader(self)
         self.params.load()
         self.set_sensors(sensor_ds18b20.DS18B20s(self))
-        gevent.signal(signal.SIGHUP, self._reload_signal)
+        asyncio.get_event_loop().add_signal_handler(signal.SIGHUP, self._reload_signal)
         return self
 
     def __exit__(self, exc_type, exc_value, traceback):
@@ -50,16 +46,17 @@ class Tempserver(object):
 
         # XXX do these go here or in __enter_() ?
         self.start_time = self.now()
-        self.fridge.start()
-        self.sensors.start()
-        self.uploader.start()
-
-        # won't return.
-        while True:
-            try:
-                gevent.sleep(60)
-            except KeyboardInterrupt:
-                break
+        tasks = (
+            self.fridge.run(),
+            self.sensors.run(),
+            self.uploader.run(),
+        )
+        loop = asyncio.get_event_loop()
+        try:
+            loop.run_until_complete(asyncio.wait(tasks))
+            # not reached
+        except KeyboardInterrupt:
+            pass
 
     def now(self):
         return utils.monotonic_time()
@@ -97,7 +94,7 @@ class Tempserver(object):
 
     def sleep(self, timeout):
         """ sleeps for timeout seconds, though wakes if the server's config is updated """
-        self._wakeup.wait(timeout)
+        asyncio.wait_for(self._wakeup, timeout=timeout)
         
     def _reload_signal(self):
         try:

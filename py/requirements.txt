@@ -1,17 +1,9 @@
-argparse==1.2.1
-wsgiref==0.1.2
+# sha256: nkIlLxfR3YnuMXReDE--WIYsJRR-sO9SlcnNm8tOosE
+lockfile==0.10.2
 
-# sha256: v6nYRtuRp9i2o26HNT7tZBx-Pn0L-guZdXltIn8ttOs
-gevent==1.0
+# sha256: 2zFqD89UuXAsr2ymGbdr4l1T9e4Hgbr_C7ni4DVfryQ
+python-daemon==2.0.5
 
-# sha256: sWDlVqIuFrrj8_Y__OeJhoLIA82JZFcZL3tU_nT-mR4
-greenlet==0.4.2
+# sha256: IzjIUGznhTrC3377pzGj_QFafuJWGvqw1p3e-0NAP1o
+aiohttp==0.14.4
 
-# sha256: I9pYnJH1nLfGRNXOXfU51Eg0G9R5kX1t3pc_guJxkUc
-lockfile==0.9.1
-
-# sha256: FmX7Fr_q5y8Wqi3kC8dWYUWL1Ccxp9RjqRGo1er5bAs
-python-daemon==1.6
-
-# sha256: NkiAJJLpVf_rKPbauGStcUBZ9UOL9nmNgvnUd8ZmrKM
-requests==2.3.0
