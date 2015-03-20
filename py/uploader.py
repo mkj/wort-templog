@@ -3,27 +3,25 @@ import hmac
 import zlib
 import binascii
 import logging
+import asyncio
 
-import gevent
-import requests
+import aiohttp
 
 import config
 from utils import L,D,EX,W,E
 import utils
 
-class Uploader(gevent.Greenlet):
+class Uploader(object):
     def __init__(self, server):
-        gevent.Greenlet.__init__(self)
         self.server = server
 
-        requests_log = logging.getLogger("requests")
-        requests_log.setLevel(logging.WARNING)
-
-    def _run(self):
-        gevent.sleep(5)
+    @asyncio.coroutine
+    def run(self):
+        # wait for the first read
+        yield from asyncio.sleep(5)
         while True:
-            self.do()
-            self.server.sleep(config.UPLOAD_SLEEP)
+            yield from self.do()
+            yield from self.server.sleep(config.UPLOAD_SLEEP)
 
     def get_tosend(self, readings):
         tosend = {}
@@ -43,26 +41,26 @@ class Uploader(gevent.Greenlet):
 
         return tosend
 
+    @asyncio.coroutine
     def send(self, tosend):
         js = json.dumps(tosend)
         js_enc = binascii.b2a_base64(zlib.compress(js))
         mac = hmac.new(config.HMAC_KEY, js_enc).hexdigest()
         send_data = {'data': js_enc, 'hmac': mac}
-        r = requests.post(config.UPDATE_URL, data=send_data)
-        result = r.text
+        r = yield from asyncio.wait_for(aiohttp.request('post', config.UPDATE_URL, data=send_data), 60)
+        result = yield from asyncio.wait_for(r.text(), 60)
         if result != 'OK':
             raise Exception("Server returned %s" % result)
 
+    @asyncio.coroutine
     def do(self):
         readings = self.server.take_readings()
         try:
             tosend = self.get_tosend(readings)
             nreadings = len(readings)
-            self.send(tosend)
+            yield from self.send(tosend)
             readings = None
             D("Sent updated %d readings" % nreadings)
-        except requests.exceptions.RequestException, e:
-            E("Error in uploader: %s" % str(e))
         except Exception, e:
             EX("Error in uploader: %s" % str(e))
         finally:

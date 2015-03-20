@@ -4,8 +4,6 @@ import json
 import signal
 import StringIO
 
-import gevent
-
 import config
 from utils import W,L,E,EX
 
