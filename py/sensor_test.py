@@ -12,7 +12,7 @@ class SensorTest(object):
         def try_read(f, fallback):
             try:
                 return open(f, 'r').read()
-            except Exception, e:
+            except Exception as e:
                 return fallback
 
         vals = {}

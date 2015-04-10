@@ -129,13 +129,13 @@ def main():
         if do_hup:
             try:
                 os.kill(pid, signal.SIGHUP)
-                print>>sys.stderr, "Sent SIGHUP to process %d" % pid
+                print("Sent SIGHUP to process %d" % pid, file=sys.stderr)
                 sys.exit(0)
             except OSError:
-                print>>sys.stderr, "Process %d isn't running?" % pid
+                print("Process %d isn't running?" % pid, file=sys.stderr)
                 sys.exit(1)
 
-        print>>sys.stderr, "Locked by PID %d" % pid
+        print("Locked by PID %d" % pid, file=sys.stderr)
     
         stale = False
         if pid > 0:
@@ -146,7 +146,7 @@ def main():
                     stale = True
 
                 if not stale:
-                    print>>sys.stderr, "Stopping old tempserver pid %d" % pid
+                    print("Stopping old tempserver pid %d" % pid, file=sys.stderr)
                     os.kill(pid, signal.SIGTERM)
                     time.sleep(2)
                     pidf.acquire(0)
@@ -161,11 +161,11 @@ def main():
 
         if stale:
             # isn't still running, steal the lock
-            print>>sys.stderr, "Unlinking stale lockfile %s for pid %d" % (pidpath, pid)
+            print("Unlinking stale lockfile %s for pid %d" % (pidpath, pid), file=sys.stderr)
             pidf.break_lock()
 
     if do_hup:
-        print>>sys.stderr, "Doesn't seem to be running"
+        print("Doesn't seem to be running", file=sys.stderr)
         sys.exit(1)
 
     if '--daemon' in sys.argv:

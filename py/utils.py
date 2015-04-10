@@ -60,7 +60,7 @@ def retry(retries=DEFAULT_TRIES, try_time = 1):
                 time.sleep(try_time)
             return None
 
-        new_f.func_name = func.func_name
+        new_f.__name__ = func.__name__
         return new_f
     return inner
 
@@ -113,7 +113,7 @@ def cheap_daemon():
         pid = os.fork()
         if pid > 0:
             sys.exit(0)
-    except OSError, e:
+    except OSError as e:
         E("Bad fork()")
         sys.exit(1)
 
@@ -123,13 +123,13 @@ def cheap_daemon():
         pid = os.fork()
         if pid > 0:
             sys.exit(0)
-    except OSError, e:
+    except OSError as e:
         E("Bad fork()")
         sys.exit(1)
 
 def uptime():
     try:
         return float(open('/proc/uptime', 'r').read().split(' ', 1)[0])
-    except Exception, e:
+    except Exception as e:
         return -1
 

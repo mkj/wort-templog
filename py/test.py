@@ -1,5 +1,5 @@
 #!/usr/bin/env python2.7
-import StringIO
+import io
 
 import unittest
 import sensor_ds18b20
@@ -50,20 +50,20 @@ class TestParams(unittest.TestCase):
             self.params.somewrongthing = 5
 
     def test_params_load(self):
-        jsbuf = StringIO.StringIO('{"fridge_setpoint": 999}')
+        jsbuf = io.StringIO('{"fridge_setpoint": 999}')
 
         self.params.load(f=jsbuf)
         self.assertEqual(self.params.fridge_setpoint, 999)
 
         with self.assertRaises(params.Params.Error):
-            jsbuf = StringIO.StringIO('{"something_else": 999}')
+            jsbuf = io.StringIO('{"something_else": 999}')
             self.params.load(f=jsbuf)
 
         with self.assertRaises(KeyError):
             x = self.params.something_else
 
     def test_params_save(self):
-        jsbuf = StringIO.StringIO()
+        jsbuf = io.StringIO()
 
         self.params.overshoot_delay = 123
         self.params.save(f=jsbuf)

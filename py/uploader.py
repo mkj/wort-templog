@@ -61,7 +61,7 @@ class Uploader(object):
             yield from self.send(tosend)
             readings = None
             D("Sent updated %d readings" % nreadings)
-        except Exception, e:
+        except Exception as e:
             EX("Error in uploader: %s" % str(e))
         finally:
             if readings is not None:
