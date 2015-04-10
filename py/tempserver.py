@@ -31,7 +31,7 @@ class Tempserver(object):
         self.fridge = fridge.Fridge(self)
         self.uploader = uploader.Uploader(self)
         self.params.load()
-        self.set_sensors(sensor_ds18b20.DS18B20s(self))
+        self.set_sensors(sensor.make_sensor(self))
         asyncio.get_event_loop().add_signal_handler(signal.SIGHUP, self._reload_signal)
         return self
 
@@ -102,7 +102,7 @@ class Tempserver(object):
             L("Reloaded.")
             self._wakeup.set()
             self._wakeup.clear()
-        except self.Error, e:
+        except Error as e:
             W("Problem reloading: %s" % str(e))
 
 def setup_logging():
@@ -124,7 +124,7 @@ def main():
     try:
         pidf.acquire(1)
         pidf.release()
-    except (lockfile.AlreadyLocked, lockfile.LockTimeout), e:
+    except (lockfile.AlreadyLocked, lockfile.LockTimeout) as e:
         pid = pidf.read_pid()
         if do_hup:
             try:
