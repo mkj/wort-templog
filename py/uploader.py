@@ -44,8 +44,8 @@ class Uploader(object):
     @asyncio.coroutine
     def send(self, tosend):
         js = json.dumps(tosend)
-        js_enc = binascii.b2a_base64(zlib.compress(js))
-        mac = hmac.new(config.HMAC_KEY, js_enc).hexdigest()
+        js_enc = binascii.b2a_base64(zlib.compress(js.encode()))
+        mac = hmac.new(config.HMAC_KEY.encode(), js_enc).hexdigest()
         send_data = {'data': js_enc, 'hmac': mac}
         r = yield from asyncio.wait_for(aiohttp.request('post', config.UPDATE_URL, data=send_data), 60)
         result = yield from asyncio.wait_for(r.text(), 60)
@@ -62,7 +62,7 @@ class Uploader(object):
             readings = None
             D("Sent updated %d readings" % nreadings)
         except Exception as e:
-            EX("Error in uploader: %s" % str(e))
+            E("Error in uploader: %s" % str(e))
         finally:
             if readings is not None:
                 self.server.pushfront(readings)

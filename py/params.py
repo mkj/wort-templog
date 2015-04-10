@@ -36,7 +36,7 @@ class Params(dict):
     def load(self, f = None):
         if not f:
             try:
-                f = file(config.PARAMS_FILE, 'r')
+                f = open(config.PARAMS_FILE, 'r')
             except IOError as e:
                 W("Missing parameter file, using defaults. %s", e)
                 return
