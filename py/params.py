@@ -2,7 +2,7 @@
 import collections
 import json
 import signal
-import StringIO
+import io
 
 import config
 from utils import W,L,E,EX
@@ -37,12 +37,12 @@ class Params(dict):
         if not f:
             try:
                 f = file(config.PARAMS_FILE, 'r')
-            except IOError, e:
+            except IOError as e:
                 W("Missing parameter file, using defaults. %s", e)
                 return
         try:
             u = json.load(f)
-        except Exception, e:
+        except Exception as e:
             raise self.Error(e)
 
         for k in u:
@@ -64,6 +64,6 @@ class Params(dict):
         f.flush()
 
     def save_string(self):
-        s = StringIO.StringIO()
+        s = io.StringIO()
         self.save(s)
         return s.getvalue()

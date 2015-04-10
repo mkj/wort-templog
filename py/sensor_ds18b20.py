@@ -65,14 +65,14 @@ class DS18B20s(object):
                 E("Problem reading sensor '%s': %f" % (s, temp))
                 return None
             return temp
-        except Exception, e:
+        except Exception as e:
             EX("Problem reading sensor '%s': %s" % (s, str(e)))
             return None
 
     def do_internal(self):
         try:
             return int(open(config.INTERNAL_TEMPERATURE, 'r').read()) / 1000.0
-        except Exception, e:
+        except Exception as e:
             EX("Problem reading internal sensor: %s" % str(e))
             return None
         
