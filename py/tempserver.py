@@ -14,7 +14,7 @@ import utils
 from utils import L,D,EX,W
 import fridge
 import config
-import sensor_ds18b20
+import sensor
 import params
 import uploader
 

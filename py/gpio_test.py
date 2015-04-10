@@ -14,7 +14,7 @@ class Gpio(object):
 	def turn(self, value):
 		self.state = bool(value)
 		onoff = ("off", "on")[int(self.state)]
-		L("Test GPIO %s pin %d turned %s" % (self.name, self.pin, onoff))
+		L("Test GPIO %s pin %s turned %s" % (self.name, self.pin, onoff))
 
 	def get_state(self):
 		return self.state
