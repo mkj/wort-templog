@@ -6,6 +6,7 @@ import logging
 import time
 import signal
 import asyncio
+import argparse
 
 import lockfile.pidlockfile
 import daemon
@@ -20,11 +21,12 @@ import uploader
 
 
 class Tempserver(object):
-    def __init__(self):
+    def __init__(self, test_mode):
         self.readings = []
         self.current = (None, None)
         self.fridge = None
-        self._wakeup = asyncio.Condition()
+        self._wakeup = asyncio.Event()
+        self._test_mode = test_mode
 
     def __enter__(self):
         self.params = params.Params()
@@ -53,9 +55,15 @@ class Tempserver(object):
         )
 
         loop = asyncio.get_event_loop()
-        result_tasks = loop.run_until_complete(asyncio.wait(tasks, return_when=asyncio.FIRST_EXCEPTION))
-        # use the results so that exceptions get thrown
-        [t.result() for x in result_tasks for t in x]
+        try:
+            result_tasks = loop.run_until_complete(asyncio.wait(tasks, return_when=asyncio.FIRST_EXCEPTION))
+            # use the results so that exceptions get thrown
+            [t.result() for x in result_tasks for t in x]
+        except KeyboardInterrupt:
+            print('ctrl-c')
+            pass
+        finally:
+            loop.close()
 
     def now(self):
         return utils.monotonic_time()
@@ -98,42 +106,58 @@ class Tempserver(object):
         # XXX fixme - we should wake on _wakeup but asyncio Condition with wait_for is a bit broken? 
         # https://groups.google.com/forum/#!topic/python-tulip/eSm7rZAe9LM
         # For now we just sleep, ignore the _wakeup
-        yield from asyncio.sleep(timeout)
+        try:
+            yield from asyncio.wait_for(self._wakeup.wait(), timeout=timeout)
+        except asyncio.TimeoutError:
+            pass
         
-    @asyncio.coroutine
     def _reload_signal(self):
         try:
             self.params.load()
             L("Reloaded.")
-            yield from self._wakeup.acquire()
-            self._wakeup.notify_all()
-            self._wakeup.release()
+            self._wakeup.set()
+            self._wakeup.clear()
         except Error as e:
             W("Problem reloading: %s" % str(e))
 
-def setup_logging():
+    def test_mode(self):
+        return self._test_mode
+
+def setup_logging(debug = False):
+    level = logging.INFO
+    if debug:
+        level = logging.DEBUG
     logging.basicConfig(format='%(asctime)s %(message)s', 
             datefmt='%m/%d/%Y %I:%M:%S %p',
-            level=logging.DEBUG)
-    logging.getLogger("asyncio").setLevel(logging.DEBUG)
+            level=level)
+    #logging.getLogger("asyncio").setLevel(logging.DEBUG)
 
-def start():
-    with Tempserver() as server:
+def start(test_mode):
+    with Tempserver(test_mode) as server:
         server.run()
 
 def main():
-    setup_logging()
+    parser = argparse.ArgumentParser()
+    parser.add_argument('--hup', action='store_true')
+    parser.add_argument('--new', action='store_true')
+    parser.add_argument('--daemon', action='store_true')
+    parser.add_argument('-d', '--debug', action='store_true')
+    parser.add_argument('-t', '--test', action='store_true')
+    args = parser.parse_args()
+
+    setup_logging(args.debug)
 
     heredir = os.path.abspath(os.path.dirname(__file__))
     pidpath = os.path.join(heredir, 'tempserver.pid')
     pidf = lockfile.pidlockfile.PIDLockFile(pidpath, threaded=False)
-    do_hup = '--hup' in sys.argv
+
+
     try:
         pidf.acquire(1)
         pidf.release()
     except (lockfile.AlreadyLocked, lockfile.LockTimeout) as e:
         pid = pidf.read_pid()
-        if do_hup:
+        if args.hup:
             try:
                 os.kill(pid, signal.SIGHUP)
                 print("Sent SIGHUP to process %d" % pid, file=sys.stderr)
@@ -146,7 +170,7 @@ def main():
     
         stale = False
         if pid > 0:
-            if '--new' in sys.argv:
+            if args.new:
                 try:
                     os.kill(pid, 0)
                 except OSError:
@@ -171,18 +195,18 @@ def main():
             print("Unlinking stale lockfile %s for pid %d" % (pidpath, pid), file=sys.stderr)
             pidf.break_lock()
 
-    if do_hup:
+    if args.hup:
         print("Doesn't seem to be running", file=sys.stderr)
         sys.exit(1)
 
-    if '--daemon' in sys.argv:
+    if args.daemon:
         logpath = os.path.join(os.path.dirname(__file__), 'tempserver.log')
         logf = open(logpath, 'a+')
         with daemon.DaemonContext(pidfile=pidf, stdout=logf, stderr = logf):
-            start()
+            start(args.test)
     else:
         with pidf:
-            start()
+            start(args.test)
 
 if __name__ == '__main__':
     main()

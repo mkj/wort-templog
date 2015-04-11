@@ -81,6 +81,8 @@ class Fridge(object):
         if fridge is None:
             W("Invalid fridge sensor")
 
+        D("fridge on %s" % self.is_on())
+
         if self.is_on():
             turn_off = False
             on_time = self.server.now() - self.fridge_on_clock
@@ -109,6 +111,7 @@ class Fridge(object):
         else:
             # fridge is off
             turn_on = False
+            D("fridge %(fridge)f max %(fridge_max)f wort %(wort)f wort_max %(wort_max)f" % locals())
             if not params.nowort \
                 and wort is not None \
                 and wort >= wort_max:

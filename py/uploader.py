@@ -1,5 +1,6 @@
 import json
 import hmac
+import hashlib
 import zlib
 import binascii
 import logging
@@ -44,8 +45,11 @@ class Uploader(object):
     @asyncio.coroutine
     def send(self, tosend):
         js = json.dumps(tosend)
+        if self.server.test_mode():
+            D("Would upload %s to %s" % (js, config.UPDATE_URL))
+            return
         js_enc = binascii.b2a_base64(zlib.compress(js.encode()))
-        mac = hmac.new(config.HMAC_KEY.encode(), js_enc).hexdigest()
+        mac = hmac.new(config.HMAC_KEY.encode(), js_enc, hashlib.sha1).hexdigest()
         send_data = {'data': js_enc, 'hmac': mac}
         r = yield from asyncio.wait_for(aiohttp.request('post', config.UPDATE_URL, data=send_data), 60)
         result = yield from asyncio.wait_for(r.text(), 60)
