@@ -11,7 +11,7 @@ class SensorTest(object):
     def make_vals(self):
         def try_read(f, fallback):
             try:
-                return open(f, 'r').read()
+                return float(open(f, 'r').read())
             except Exception as e:
                 return fallback
 
@@ -22,7 +22,6 @@ class SensorTest(object):
         return vals
 
     def run(self):
-
         while True:
             yield from asyncio.sleep(1)
             vals = self.make_vals()
