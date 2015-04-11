@@ -33,13 +33,7 @@ class Params(dict):
         self[k]
         self[k] = v
 
-    def load(self, f = None):
-        if not f:
-            try:
-                f = open(config.PARAMS_FILE, 'r')
-            except IOError as e:
-                W("Missing parameter file, using defaults. %s", e)
-                return
+    def _do_load(self, f):
         try:
             u = json.load(f)
         except Exception as e:
@@ -55,13 +49,28 @@ class Params(dict):
         L("Loaded parameters")
         L(self.save_string())
 
+    def load(self, f = None):
+        if f:
+            return self._do_load(f)
+        else:
+            with open(config.PARAMS_FILE, 'r') as f:
+                try:
+                    return self._do_load(f)
+                except IOError as e:
+                    W("Missing parameter file, using defaults. %s" % str(e))
+                    return
 
-    def save(self, f = None):
-        if not f:
-            f = file(config.PARAMS_FILE, 'w')
+    def _do_save(self, f):
         json.dump(self, f, sort_keys=True, indent=4)
         f.write('\n')
         f.flush()
+
+    def save(self, f = None):
+        if f:
+            return self._do_save(f)
+        else:
+            with file(config.PARAMS_FILE, 'w') as f:
+                return self._do_save(f)
 
     def save_string(self):
         s = io.StringIO()
