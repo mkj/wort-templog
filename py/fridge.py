@@ -36,7 +36,10 @@ class Fridge(object):
             L("Fridge is disabled")
         while True:
             self.do()
-            yield from self.server.sleep(config.FRIDGE_SLEEP)
+            try:
+                yield from self.server.sleep(config.FRIDGE_SLEEP)
+            except Exception as e:
+                EX("fridge failed")
 
     def do(self):
         """ this is the main fridge control logic """

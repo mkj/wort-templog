@@ -24,7 +24,7 @@ class Tempserver(object):
         self.readings = []
         self.current = (None, None)
         self.fridge = None
-        self._wakeup = asyncio.Event()
+        self._wakeup = asyncio.Condition()
 
     def __enter__(self):
         self.params = params.Params()
@@ -51,12 +51,11 @@ class Tempserver(object):
             self.sensors.run(),
             self.uploader.run(),
         )
+
         loop = asyncio.get_event_loop()
-        try:
-            loop.run_until_complete(asyncio.wait(tasks))
-            # not reached
-        except KeyboardInterrupt:
-            pass
+        result_tasks = loop.run_until_complete(asyncio.wait(tasks, return_when=asyncio.FIRST_EXCEPTION))
+        # use the results so that exceptions get thrown
+        [t.result() for x in result_tasks for t in x]
 
     def now(self):
         return utils.monotonic_time()
@@ -90,25 +89,33 @@ class Tempserver(object):
 
     def current_temps(self):
         """ returns (wort_temp, fridge_temp) tuple """
+        D("current: %s" % str(self.current))
         return self.current
 
+    @asyncio.coroutine
     def sleep(self, timeout):
         """ sleeps for timeout seconds, though wakes if the server's config is updated """
-        asyncio.wait_for(self._wakeup, timeout=timeout)
+        # XXX fixme - we should wake on _wakeup but asyncio Condition with wait_for is a bit broken? 
+        # https://groups.google.com/forum/#!topic/python-tulip/eSm7rZAe9LM
+        # For now we just sleep, ignore the _wakeup
+        yield from asyncio.sleep(timeout)
         
+    @asyncio.coroutine
     def _reload_signal(self):
         try:
             self.params.load()
             L("Reloaded.")
-            self._wakeup.set()
-            self._wakeup.clear()
+            yield from self._wakeup.acquire()
+            self._wakeup.notify_all()
+            self._wakeup.release()
         except Error as e:
             W("Problem reloading: %s" % str(e))
 
 def setup_logging():
     logging.basicConfig(format='%(asctime)s %(message)s', 
             datefmt='%m/%d/%Y %I:%M:%S %p',
-            level=logging.INFO)
+            level=logging.DEBUG)
+    logging.getLogger("asyncio").setLevel(logging.DEBUG)
 
 def start():
     with Tempserver() as server:
