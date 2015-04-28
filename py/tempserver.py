@@ -48,21 +48,19 @@ class Tempserver(object):
 
         # XXX do these go here or in __enter_() ?
         self.start_time = self.now()
-        tasks = (
+        runloops = [
             self.fridge.run(),
             self.sensors.run(),
             self.uploader.run(),
-        )
+        ]
 
         loop = asyncio.get_event_loop()
         try:
-            result_tasks = loop.run_until_complete(asyncio.wait(tasks, return_when=asyncio.FIRST_EXCEPTION))
-            # use the results so that exceptions get thrown
-            [t.result() for x in result_tasks for t in x]
+            loop.run_until_complete(asyncio.gather(*runloops))
         except KeyboardInterrupt:
-            print('ctrl-c')
-            pass
+            print('\nctrl-c')
         finally:
+            # loop.close() seems necessary otherwise get warnings about signal handlers
             loop.close()
 
     def now(self):
@@ -110,7 +108,7 @@ class Tempserver(object):
             yield from asyncio.wait_for(self._wakeup.wait(), timeout=timeout)
         except asyncio.TimeoutError:
             pass
-        
+
     def _reload_signal(self):
         try:
             self.params.load()
