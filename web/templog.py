@@ -23,6 +23,16 @@ import atomicfile
 DATE_FORMAT = '%Y%m%d-%H.%M'
 ZOOM_SCALE = 2.0
 
+class TemplogBottle(bottle.Bottle):
+    def run(*args, **argm):
+        argm['server'] = 'gevent'
+        super(TemplogBottle, self).run(*args, **argm)
+        print "ran custom bottle"
+
+bottle.default_app.push(TemplogBottle())
+
+secure.setup_csrf()
+
 @route('/update', method='post')
 def update():
     js_enc = request.forms.data
@@ -132,16 +142,6 @@ def env():
 def javascripts(filename):
     response.set_header('Cache-Control', "public, max-age=1296000")
     return bottle.static_file(filename, root='static')
-
-secure.setup_csrf()
-
-class TemplogBottle(Bottle):
-    def run(*args, **argm):
-        argm['server'] = 'gevent'
-        super(TemplogBottle, self).run(*args, **argm)
-        print "ran custom bottle"
-
-bottle.app().push(TemplogBottle())
 
 def main():
     #bottle.debug(True)
