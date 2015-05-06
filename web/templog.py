@@ -75,11 +75,6 @@ def set():
         csrf_blob = secure.get_csrf_blob(),
         allowed = allowed)
 
-@route('/set_current.json')
-def set_fresh():
-    response.set_header('Content-Type', 'application/javascript')
-    return log.get_current()
-
 @route('/')
 def top():
 
@@ -139,6 +134,14 @@ def javascripts(filename):
     return bottle.static_file(filename, root='static')
 
 secure.setup_csrf()
+
+class TemplogBottle(Bottle):
+    def run(*args, **argm):
+        argm['server'] = 'gevent'
+        super(TemplogBottle, self).run(*args, **argm)
+        print "ran custom bottle"
+
+bottle.app().push(TemplogBottle())
 
 def main():
     #bottle.debug(True)
