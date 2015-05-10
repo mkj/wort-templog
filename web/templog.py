@@ -29,7 +29,7 @@ class TemplogBottle(bottle.Bottle):
         super(TemplogBottle, self).run(*args, **argm)
         print "ran custom bottle"
 
-bottle.default_app.push(TemplogBottle())
+#bottle.default_app.push(TemplogBottle())
 
 secure.setup_csrf()
 
