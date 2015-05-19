@@ -11,6 +11,7 @@ import sys
 import os
 import traceback
 import fcntl
+import hashlib
 
 import bottle
 from bottle import route, request, response
@@ -38,7 +39,8 @@ def update():
     js_enc = request.forms.data
     mac = request.forms.hmac
 
-    if hmac.new(config.HMAC_KEY, js_enc).hexdigest() != mac:
+    h = hmac.new(config.HMAC_KEY, js_enc.strip(), hashlib.sha256).hexdigest()
+    if h != mac:
         raise bottle.HTTPError(code = 403, output = "Bad key")
 
     js = zlib.decompress(binascii.a2b_base64(js_enc))
