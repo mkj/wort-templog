@@ -8,7 +8,7 @@ import concurrent.futures
 import config
 from utils import D,L,W,E,EX
 
-class DS18B20s(object):
+class SensorDS18B20(object):
 
     THERM_RE = re.compile('.* YES\n.*t=(.*)\n', re.MULTILINE)
 
@@ -37,6 +37,7 @@ class DS18B20s(object):
             yield from self.do()
             yield from self.server.sleep(config.SENSOR_SLEEP)
 
+
     @asyncio.coroutine
     def read_wait(self, f):
         # handles a blocking file read with a threadpool. A
@@ -45,7 +46,7 @@ class DS18B20s(object):
         # the ds18b20 takes ~750ms to read, which is noticable
         # interactively.
         loop = asyncio.get_event_loop()
-        yield from loop.run_in_executor(self.readthread, f.read)
+        return loop.run_in_executor(None, f.read)
 
     @asyncio.coroutine
     def do_sensor(self, s, contents = None):
@@ -53,8 +54,8 @@ class DS18B20s(object):
         try:
             if contents is None:
                 fn = os.path.join(self.master_dir, s, 'w1_slave')
-                f = open(fn, 'r')
-                contents = yield from self.read_wait(f)
+                with open(fn, 'r') as f:
+                    contents = yield from self.read_wait(f)
 
             match = self.THERM_RE.match(contents)
             if match is None:
@@ -71,7 +72,8 @@ class DS18B20s(object):
 
     def do_internal(self):
         try:
-            return int(open(config.INTERNAL_TEMPERATURE, 'r').read()) / 1000.0
+            with open(config.INTERNAL_TEMPERATURE, 'r') as f:
+                return int(f.read()) / 1000.0
         except Exception as e:
             EX("Problem reading internal sensor: %s" % str(e))
             return None
@@ -80,7 +82,8 @@ class DS18B20s(object):
     def sensor_names(self):
         """ Returns a sequence of sensorname """
         slaves_path = os.path.join(self.master_dir, "w1_master_slaves")
-        contents = open(slaves_path, 'r').read()
+        with open(slaves_path, 'r') as f:
+            contents = f.read()
         if 'not found' in contents:
             E("No W1 sensors found")
             return []
