@@ -11,6 +11,7 @@ import sys
 import os
 import traceback
 import fcntl
+import hashlib
 
 import bottle
 from bottle import route, request, response
@@ -23,12 +24,23 @@ import atomicfile
 DATE_FORMAT = '%Y%m%d-%H.%M'
 ZOOM_SCALE = 2.0
 
+class TemplogBottle(bottle.Bottle):
+    def run(*args, **argm):
+        argm['server'] = 'gevent'
+        super(TemplogBottle, self).run(*args, **argm)
+        print "ran custom bottle"
+
+#bottle.default_app.push(TemplogBottle())
+
+secure.setup_csrf()
+
 @route('/update', method='post')
 def update():
     js_enc = request.forms.data
     mac = request.forms.hmac
 
-    if hmac.new(config.HMAC_KEY, js_enc).hexdigest() != mac:
+    h = hmac.new(config.HMAC_KEY, js_enc.strip(), hashlib.sha256).hexdigest()
+    if h != mac:
         raise bottle.HTTPError(code = 403, output = "Bad key")
 
     js = zlib.decompress(binascii.a2b_base64(js_enc))
@@ -39,15 +51,22 @@ def update():
 
     return "OK"
 
-@route('/graph.png')
-def graph():
-    length_minutes = int(request.query.length)
-    end = datetime.strptime(request.query.end, DATE_FORMAT)
+def make_graph(length, end):
+    length_minutes = int(length)
+    end = datetime.strptime(end, DATE_FORMAT)
     start = end - timedelta(minutes=length_minutes)
 
-    response.set_header('Content-Type', 'image/png')
     start_epoch = time.mktime(start.timetuple())
     return log.graph_png(start_epoch, length_minutes * 60)
+
+def encode_data(data, mimetype):
+    return 'data:%s;base64,%s' % (mimetype, binascii.b2a_base64(data).rstrip())
+
+
+@route('/graph.png')
+def graph():
+    response.set_header('Content-Type', 'image/png')
+    return make_graph(request.query.length, request.query.end)
 
 @route('/set/update', method='post')
 def set_update():
@@ -74,11 +93,6 @@ def set():
         inline_data = log.get_params(), 
         csrf_blob = secure.get_csrf_blob(),
         allowed = allowed)
-
-@route('/set_current.json')
-def set_fresh():
-    response.set_header('Content-Type', 'application/javascript')
-    return log.get_current()
 
 @route('/')
 def top():
@@ -114,9 +128,12 @@ def top():
     request.query.replace('end', end.strftime(DATE_FORMAT))
 
     urlparams = urllib.urlencode(request.query)
+    graphdata = encode_data(make_graph(request.query.length, request.query.end), 'image/png')
     return bottle.template('top', urlparams=urlparams,
                     end = end.strftime(DATE_FORMAT),
-                    length = minutes)
+                    length = minutes,
+                    graphwidth = config.GRAPH_WIDTH,
+                    graphdata = graphdata)
 
 @route('/debug')
 def debuglog():
@@ -137,8 +154,6 @@ def env():
 def javascripts(filename):
     response.set_header('Cache-Control', "public, max-age=1296000")
     return bottle.static_file(filename, root='static')
-
-secure.setup_csrf()
 
 def main():
     #bottle.debug(True)
