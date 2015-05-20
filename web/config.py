@@ -16,9 +16,11 @@ SSH_PROG = 'ssh'
 
 UPDATE_URL = 'http://evil.ucc.asn.au/~matt/templog/update'
 
-GRAPH_WIDTH = 1200
-GRAPH_HEIGHT = 600
+GRAPH_WIDTH = 600
+GRAPH_HEIGHT = 700
 ZOOM = 1
+# determine by viewing the image
+GRAPH_LEFT_MARGIN = 65
 
 LINE_WIDTH = 2
 
@@ -50,8 +52,6 @@ SENSOR_COLOURS = {'Wort': 'e49222',
 GRAPH_FONT = "Prociono"
 #GRAPH_FONT = "URW Gothic L"
 
-# determine by zooming in an image viewer
-GRAPH_LEFT_MARGIN = 63
 
 # 1 hour
 CSRF_TIMEOUT = 3600

@@ -2,6 +2,7 @@
 <html xmlns="http://www.w3.org/1999/xhtml" xml:lang="en">
 <head>
 <title>Wort Temperature Log</title>
+<meta name="viewport" content="width=device-width">
 <style type="text/css"><!--
 span.no_selection {
     -webkit-user-select: none; // webkit (safari, chrome) browsers
@@ -19,7 +20,7 @@ span.codelink {
 </head>
 <body>
 <form action="" method="get">
-<span class="no_selection"><input type="image" style="width: 1200px" src="graph.png?{{urlparams}}"/></span>
+<span class="no_selection"><input type="image" style="width: {{graphwidth}}" src="{{graphdata}}"/></span>
 <input type="hidden" name="length" value="{{length}}"/>
 <input type="hidden" name="end" value="{{end}}"/>
 <input type="hidden" name="zoom" value="yeah"/>
