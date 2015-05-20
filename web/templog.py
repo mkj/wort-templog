@@ -51,15 +51,22 @@ def update():
 
     return "OK"
 
-@route('/graph.png')
-def graph():
-    length_minutes = int(request.query.length)
-    end = datetime.strptime(request.query.end, DATE_FORMAT)
+def make_graph(length, end):
+    length_minutes = int(length)
+    end = datetime.strptime(end, DATE_FORMAT)
     start = end - timedelta(minutes=length_minutes)
 
-    response.set_header('Content-Type', 'image/png')
     start_epoch = time.mktime(start.timetuple())
     return log.graph_png(start_epoch, length_minutes * 60)
+
+def encode_data(data, mimetype):
+    return 'data:%s;base64,%s' % (mimetype, binascii.b2a_base64(data).rstrip())
+
+
+@route('/graph.png')
+def graph():
+    response.set_header('Content-Type', 'image/png')
+    return make_graph(request.query.length, request.query.end)
 
 @route('/set/update', method='post')
 def set_update():
@@ -121,9 +128,12 @@ def top():
     request.query.replace('end', end.strftime(DATE_FORMAT))
 
     urlparams = urllib.urlencode(request.query)
+    graphdata = encode_data(make_graph(request.query.length, request.query.end), 'image/png')
     return bottle.template('top', urlparams=urlparams,
                     end = end.strftime(DATE_FORMAT),
-                    length = minutes)
+                    length = minutes,
+                    graphwidth = config.GRAPH_WIDTH,
+                    graphdata = graphdata)
 
 @route('/debug')
 def debuglog():
