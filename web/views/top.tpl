@@ -20,7 +20,7 @@ span.codelink {
 </head>
 <body>
 <form action="" method="get">
-<span class="no_selection"><input type="image" style="width: {{graphwidth}}" src="{{graphdata}}"/></span>
+<span class="no_selection"><input type="image" style="width: 100%; max-width: {{graphwidth}}px" src="{{graphdata}}"/></span>
 <input type="hidden" name="length" value="{{length}}"/>
 <input type="hidden" name="end" value="{{end}}"/>
 <input type="hidden" name="zoom" value="yeah"/>
