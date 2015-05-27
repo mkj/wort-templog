@@ -107,7 +107,8 @@ def top():
     if 'zoom' in request.query:
         orig_start = end - timedelta(minutes=minutes)
         orig_end = end
-        xpos = int(request.query.x)
+        scale = float(request.query.scaledwidth) / config.GRAPH_WIDTH
+        xpos = int(request.query.x) / scale
         xpos -= config.GRAPH_LEFT_MARGIN * config.ZOOM
 
         if xpos >= 0 and xpos < config.GRAPH_WIDTH * config.ZOOM:
