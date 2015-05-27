@@ -26,17 +26,19 @@ span.codelink {
 <script type="text/javascript">
 function updatewidth() {
 	var width_input = document.getElementById("scaledwidth");
-	width_input.value = document.getElementById("mainimage").clientWidth;
+	var main_image = document.getElementById("mainimage");
+	width_input.value = main_image.clientWidth;
+	return true;
 }
 
 </script>
 <body>
-<form action="" method="get">
-<span class="no_selection"><input type="image" id="mainimage" src="{{graphdata}}" onclick="updatewidth();"/></span>
+<form action="" method="get" onsubmit="return updatewidth();">
+<span class="no_selection"><input type="image" id="mainimage" src="{{graphdata}}"/></span>
 <input type="hidden" name="length" value="{{length}}"/>
 <input type="hidden" name="end" value="{{end}}"/>
 <input type="hidden" name="zoom" value="yeah"/>
-<input type="hidden" name="scaledwidth" id="scaledwidth" value="-1"/>
+<input type="hidden" name="scaledwidth" id="scaledwidth" value="{{graphwidth}}"/>
 </form>
 <span class="codelink">Click to zoom in, click the left axis to zoom out. <a href="https://secure.ucc.asn.au/hg/templog/file/tip">Source code</a> for the Raspberry Pi controller and this web interface</a>. <a href="set">Adjustments</a> by phone.</span>
 </body>
