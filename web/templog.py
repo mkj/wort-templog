@@ -66,7 +66,8 @@ def encode_data(data, mimetype):
 @route('/graph.png')
 def graph():
     response.set_header('Content-Type', 'image/png')
-    return make_graph(request.query.length, request.query.end)
+    minutes, endstr = get_request_zoom()
+    return make_graph(minutes, endstr)
 
 @route('/set/update', method='post')
 def set_update():
@@ -94,9 +95,9 @@ def set():
         csrf_blob = secure.get_csrf_blob(),
         allowed = allowed)
 
-@route('/')
-def top():
-
+def get_request_zoom():
+    """ returns (length, end) tuple.
+    length is in minutes, end is a DATE_FORMAT string """
     minutes = int(request.query.get('length', 26*60))
 
     if 'end' in request.query:
@@ -107,7 +108,8 @@ def top():
     if 'zoom' in request.query:
         orig_start = end - timedelta(minutes=minutes)
         orig_end = end
-        xpos = int(request.query.x)
+        scale = float(request.query.scaledwidth) / config.GRAPH_WIDTH
+        xpos = int(request.query.x) / scale
         xpos -= config.GRAPH_LEFT_MARGIN * config.ZOOM
 
         if xpos >= 0 and xpos < config.GRAPH_WIDTH * config.ZOOM:
@@ -123,14 +125,21 @@ def top():
 
     if end > datetime.now():
         end = datetime.now()
-        
+
+    endstr = end.strftime(DATE_FORMAT)
+    return (minutes, endstr)
+
+@route('/')
+def top():
+    minutes, endstr = get_request_zoom()
+
     request.query.replace('length', minutes)
-    request.query.replace('end', end.strftime(DATE_FORMAT))
+    request.query.replace('end', endstr)
 
     urlparams = urllib.urlencode(request.query)
-    graphdata = encode_data(make_graph(request.query.length, request.query.end), 'image/png')
+    graphdata = encode_data(make_graph(minutes, endstr), 'image/png')
     return bottle.template('top', urlparams=urlparams,
-                    end = end.strftime(DATE_FORMAT),
+                    end = endstr,
                     length = minutes,
                     graphwidth = config.GRAPH_WIDTH,
                     graphdata = graphdata)
