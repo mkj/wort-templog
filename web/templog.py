@@ -159,12 +159,18 @@ def env():
     #var_lookup = environ['mod_ssl.var_lookup']
     #return var_lookup("SSL_SERVER_I_DN_O")
 
+@route('/wait')
+def wait():
+    response.set_header('Content-Type', 'text/plain')
+    yield 'done'
+
 @bottle.get('/<filename:re:.*\.js>')
 def javascripts(filename):
     response.set_header('Cache-Control', "public, max-age=1296000")
     return bottle.static_file(filename, root='static')
 
 def main():
+    """ for standalone testing """
     #bottle.debug(True)
     #bottle.run(reloader=True)
     bottle.run(server='cgi', reloader=True)

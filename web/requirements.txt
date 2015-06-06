@@ -1,0 +1,11 @@
+argparse==1.2.1
+gevent==1.0.2
+greenlet==0.4.7
+
+# sha256: nkIlLxfR3YnuMXReDE--WIYsJRR-sO9SlcnNm8tOosE
+lockfile==0.10.2
+
+peep==2.4.1
+python-rrdtool==1.4.7
+uWSGI==2.0.10
+wsgiref==0.1.2
