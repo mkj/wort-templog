@@ -178,6 +178,7 @@ def javascripts(filename):
 
 
 def main():
+    """ for standalone testing """
     #bottle.debug(True)
     #bottle.run(reloader=True)
     bottle.run(server='cgi', reloader=True)
