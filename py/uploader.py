@@ -59,8 +59,8 @@ class Uploader(object):
 
     @asyncio.coroutine
     def do(self):
-        readings = self.server.take_readings()
         try:
+            readings = self.server.take_readings()
             tosend = self.get_tosend(readings)
             nreadings = len(readings)
             yield from self.send(tosend)
