@@ -35,8 +35,8 @@ class Fridge(object):
         if self.server.params.disabled:
             L("Fridge is disabled")
         while True:
-            self.do()
             try:
+                self.do()
                 yield from self.server.sleep(config.FRIDGE_SLEEP)
             except Exception as e:
                 EX("fridge failed")
@@ -111,7 +111,7 @@ class Fridge(object):
         else:
             # fridge is off
             turn_on = False
-            D("fridge %(fridge)f max %(fridge_max)f wort %(wort)f wort_max %(wort_max)f" % locals())
+            D("fridge %(fridge)s max %(fridge_max)s wort %(wort)s wort_max %(wort_max)s" % locals())
             if not params.nowort \
                 and wort is not None \
                 and wort >= wort_max:
