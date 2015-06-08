@@ -32,9 +32,10 @@ class Tempserver(object):
         self.params = params.Params()
         self.fridge = fridge.Fridge(self)
         self.uploader = uploader.Uploader(self)
+        self.configwaiter = configwaiter.ConfigWaiter(self)
         self.params.load()
         self.set_sensors(sensor.make_sensor(self))
-        asyncio.get_event_loop().add_signal_handler(signal.SIGHUP, self._reload_signal)
+        asyncio.get_event_loop().add_signal_handler(signal.SIGHUP, self.reload_signal)
         return self
 
     def __exit__(self, exc_type, exc_value, traceback):
@@ -52,6 +53,7 @@ class Tempserver(object):
             self.fridge.run(),
             self.sensors.run(),
             self.uploader.run(),
+            self.configwaiter.run(),
         ]
 
         loop = asyncio.get_event_loop()
@@ -109,10 +111,11 @@ class Tempserver(object):
         except asyncio.TimeoutError:
             pass
 
-    def _reload_signal(self):
+    def reload_signal(self, no_file = False):
         try:
-            self.params.load()
-            L("Reloaded.")
+            if not no_file:
+                self.params.load()
+                L("Reloaded.")
             self._wakeup.set()
             self._wakeup.clear()
         except Error as e:

@@ -28,9 +28,8 @@ class TemplogBottle(bottle.Bottle):
     def run(*args, **argm):
         argm['server'] = 'gevent'
         super(TemplogBottle, self).run(*args, **argm)
-        print "ran custom bottle"
 
-#bottle.default_app.push(TemplogBottle())
+bottle.default_app.push(TemplogBottle())
 
 secure.setup_csrf()
 
@@ -62,7 +61,6 @@ def make_graph(length, end):
 def encode_data(data, mimetype):
     return 'data:%s;base64,%s' % (mimetype, binascii.b2a_base64(data).rstrip())
 
-
 @route('/graph.png')
 def graph():
     response.set_header('Content-Type', 'image/png')
@@ -76,12 +74,12 @@ def set_update():
     csrf_blob = post_json['csrf_blob']
 
     if not secure.check_csrf_blob(csrf_blob):
-        bottle.response.status = 403
+        response.status = 403
         return "Bad csrf"
 
     ret = log.update_params(post_json['params'])
     if not ret is True:
-        bottle.response.status = 403
+        response.status = 403
         return ret
         
     return "Good"
@@ -159,10 +157,25 @@ def env():
     #var_lookup = environ['mod_ssl.var_lookup']
     #return var_lookup("SSL_SERVER_I_DN_O")
 
+@route('/get_settings')
+def get_settings():
+    response.set_header('Cache-Control', 'no-cache')
+    req_etag = request.headers.get('etag', None)
+    if req_etag:
+        # wait for it to change
+        if not log.fridge_settings.wait(req_etag, timeout=LONG_POLL_TIMEOUT):
+            response.status = 304
+            return "Nothing happened"
+
+    response.set_header('Content-Type', 'application/json')
+    contents, epoch_tag = client_settings.get()
+    return json.dumps({'params': contents, 'epoch_tag': epoch_tag})
+
 @bottle.get('/<filename:re:.*\.js>')
 def javascripts(filename):
     response.set_header('Cache-Control', "public, max-age=1296000")
     return bottle.static_file(filename, root='static')
+
 
 def main():
     #bottle.debug(True)

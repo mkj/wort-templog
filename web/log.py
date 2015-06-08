@@ -20,6 +20,9 @@ from colorsys import hls_to_rgb
 
 import config
 import atomicfile
+import settings
+
+fridge_settings = settings.Settings()
 
 def sensor_rrd_path(s):
     return '%s/sensor_%s.rrd' % (config.DATA_PATH, str(s))
@@ -245,16 +248,11 @@ def time_rem(name, entries):
     return val_ticks + float(val_rem) * tick_secs / tick_wake
 
 def write_current_params(current_params):
-    out = {}
-    out['params'] = current_params
-    out['time'] = time.time()
-    atomicfile.AtomicFile("%s/current_params.txt" % config.DATA_PATH).write(
-        json.dumps(out, sort_keys=True, indent=4)+'\n')
+    fridge_settings.update(current_params)
 
 def read_current_params():
-    p = atomicfile.AtomicFile("%s/current_params.txt" % config.DATA_PATH).read()
-    dat = json.loads(p)
-    return dat['params']
+    params, epochtag = fridge_settings.get()
+    return params
 
 def parse(params):
 
@@ -278,10 +276,11 @@ def parse(params):
 
     # one-off measurements here
     current_params = params['current_params']
+    current_epoch = params['current_params_epoch']
     measurements['fridge_on'] = [ (time.time(), params['fridge_on']) ]
     measurements['fridge_setpoint'] = [ (time.time(), current_params['fridge_setpoint']) ]
 
-    write_current_params(current_params)
+    write_current_params(current_params, current_epoch)
 
     for s, vs in measurements.iteritems():
         sensor_update(s, vs)
@@ -371,10 +370,7 @@ def update_params(p):
         if not same_type(v, _FIELD_DEFAULTS[k]):
             return "Bad type for %s, %s vs %s" % (k , type(v), type(_FIELD_DEFAULTS[k]))
 
-    ret = send_params(params) 
-    if ret is not True:
-        return "Failed sending params: %s" % ret
-
+    fridge_settings.update(params)
     return True
 
 

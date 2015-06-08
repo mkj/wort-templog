@@ -20,8 +20,9 @@ AMBIENT_NAME = '28-0000042c6dbb'
 INTERNAL_TEMPERATURE = '/sys/class/thermal/thermal_zone0/temp'
 
 HMAC_KEY = "a key"
-#UPDATE_URL = 'https://matt.ucc.asn.au/test/templog/update'
-UPDATE_URL = 'https://evil.ucc.asn.au/~matt/templog/update'
+SERVER_URL = 'https://evil.ucc.asn.au/~matt/templog/update'
+UPDATE_URL = "%s/update" % SERVER_URL
+SETTINGS_URL = "%s/update" % SERVER_URL
 
 # site-local values overridden in localconfig, eg WORT_NAME, HMAC_KEY
 try:
