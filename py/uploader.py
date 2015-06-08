@@ -36,6 +36,7 @@ class Uploader(object):
         tosend['fridge_name'] = self.server.wort_name
 
         tosend['current_params'] = dict(self.server.params)
+        tosend['current_params_epoch'] = self.server.params.get_epoch()
 
         tosend['start_time'] = self.server.start_time
         tosend['uptime'] = utils.uptime()
@@ -53,7 +54,7 @@ class Uploader(object):
         send_data = {'data': js_enc.decode(), 'hmac': mac}
         r = yield from asyncio.wait_for(aiohttp.request('post', config.UPDATE_URL, data=send_data), 60)
         result = yield from asyncio.wait_for(r.text(), 60)
-        if result != 'OK':
+        if r.status == 200 and result != 'OK':
             raise Exception("Server returned %s" % result)
 
     @asyncio.coroutine

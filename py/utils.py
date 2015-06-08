@@ -4,6 +4,7 @@ import sys
 import time
 import select
 import logging
+import binascii
 
 D = logging.debug
 L = logging.info
@@ -133,3 +134,5 @@ def uptime():
     except Exception as e:
         return -1
 
+def hexnonce():
+    return binascii.hexlify(os.urandom(120))
