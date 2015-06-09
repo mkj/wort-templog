@@ -163,12 +163,16 @@ def get_settings():
     req_etag = request.headers.get('etag', None)
     if req_etag:
         # wait for it to change
-        if not log.fridge_settings.wait(req_etag, timeout=LONG_POLL_TIMEOUT):
-            response.status = 304
-            return "Nothing happened"
+        # XXX this is meant to return True if it has been woken up
+        # but it isn't working. Instead compare epochtag below.
+        log.fridge_settings.wait(req_etag, timeout=config.LONG_POLL_TIMEOUT)
+
+    contents, epoch_tag = log.fridge_settings.get()
+    if epoch_tag == req_etag:
+        response.status = 304
+        return "Nothing happened"
 
     response.set_header('Content-Type', 'application/json')
-    contents, epoch_tag = client_settings.get()
     return json.dumps({'params': contents, 'epoch_tag': epoch_tag})
 
 @bottle.get('/<filename:re:.*\.js>')

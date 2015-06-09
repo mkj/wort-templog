@@ -56,6 +56,8 @@ GRAPH_FONT = "Prociono"
 # 1 hour
 CSRF_TIMEOUT = 3600
 
+LONG_POLL_TIMEOUT = 500
+
 try:
     from localconfig import *
 except ImportError:
