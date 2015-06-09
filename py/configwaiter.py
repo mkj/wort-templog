@@ -51,6 +51,9 @@ class ConfigWaiter(object):
                 # longer timeout to avoid spinning
                 yield from asyncio.sleep(30)
 
+        except asyncio.TimeoutError:
+            D("configwaiter http timed out")
+            pass
         except Exception as e:
             EX("Error watching config: %s" % str(e))
 
