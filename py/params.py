@@ -2,8 +2,9 @@
 import collections
 import json
 import signal
-import io
 import tempfile
+import os
+import binascii
 
 import config
 from utils import W,L,E,EX
@@ -26,7 +27,7 @@ class Params(dict):
 
     def __init__(self):
         self.update(_FIELD_DEFAULTS)
-        self._epoch = None
+        self._set_epoch(None)
 
     def __getattr__(self, k):
         return self[k]
@@ -36,9 +37,13 @@ class Params(dict):
         self[k]
         self[k] = v
 
+    def _set_epoch(self, epoch):
+        # since __setattr__ is overridden
+        object.__setattr__(self, '_epoch', epoch)
+
     def _do_load(self, f):
         try:
-            u = json.load(f)
+            u = utils.json_load_round_float(f.read())
         except Exception as e:
             raise self.Error(e)
 
@@ -48,7 +53,8 @@ class Params(dict):
             if k not in self:
                 raise self.Error("Unknown parameter %s=%s in file '%s'" % (str(k), str(u[k]), getattr(f, 'name', '???')))
         self.update(u)
-        self._epoch = utils.hexnonce()
+        # new epoch, 120 random bits
+        self._set_epoch(binascii.hexlify(os.urandom(15)).decode())
 
         L("Loaded parameters")
         L(self.save_string())
@@ -87,12 +93,12 @@ class Params(dict):
 
             return ta == tb
 
-        if self.keys() != new_params.keys():
-            diff = self.keys() ^ new_params.keys()
+        if self.keys() != params.keys():
+            diff = self.keys() ^ params.keys()
             E("Mismatching params, %s" % str(diff))
             return False
 
-        for k, v in new_params.items():
+        for k, v in params.items():
             if not same_type(v, self[k]):
                 E("Bad type for %s" % k)
                 return False
@@ -100,17 +106,19 @@ class Params(dict):
         dir = os.path.dirname(config.PARAMS_FILE)
         try:
             t = tempfile.NamedTemporaryFile(prefix='config',
+                mode='w+t',
                 dir = dir,
                 delete = False)
 
-            t.write(json.dumps(new_params, sort_keys=True, indent=4)+'\n')
+            out = json.dumps(params, sort_keys=True, indent=4)+'\n'
+            t.write(out)
             name = t.name
             t.close()
 
             os.rename(name, config.PARAMS_FILE)
             return True
         except Exception as e:
-            E("Problem: %s" % e)
+            EX("Problem: %s" % e)
             return False
 
     def save_string(self):
