@@ -106,7 +106,7 @@ class Params(dict):
         dir = os.path.dirname(config.PARAMS_FILE)
         try:
             t = tempfile.NamedTemporaryFile(prefix='config',
-                mode='w+t',
+                mode='w+t', # NamedTemporaryFile is binary by default
                 dir = dir,
                 delete = False)
 
@@ -116,10 +116,14 @@ class Params(dict):
             t.close()
 
             os.rename(name, config.PARAMS_FILE)
-            return True
         except Exception as e:
             EX("Problem: %s" % e)
             return False
+
+        self.update(params)
+        L("Received parameters")
+        L(self.save_string())
+        return True
 
     def save_string(self):
         return json.dumps(self, sort_keys=True, indent=4)
