@@ -2,6 +2,9 @@ import gevent
 import fcntl
 import hashlib
 
+import binascii
+import os
+
 class Settings(object):
     RAND_SIZE = 15 # 120 bits
 
@@ -22,7 +25,7 @@ class Settings(object):
         self.epoch = None
         self.tag = None
 
-        self.update(self, None, 'startepoch')
+        self.update(None, 'startepoch')
 
     def wait(self, epoch_tag = None, timeout = None):
         """ returns false if the timeout was hit """

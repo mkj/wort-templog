@@ -247,8 +247,8 @@ def time_rem(name, entries):
     tick_secs = int(entries['tick_secs'])
     return val_ticks + float(val_rem) * tick_secs / tick_wake
 
-def write_current_params(current_params):
-    fridge_settings.update(current_params)
+def write_current_params(current_params, current_epoch):
+    fridge_settings.update(current_params, current_epoch)
 
 def read_current_params():
     params, epochtag = fridge_settings.get()
