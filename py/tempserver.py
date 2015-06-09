@@ -18,6 +18,7 @@ import config
 import sensor
 import params
 import uploader
+import configwaiter
 
 
 class Tempserver(object):
@@ -141,7 +142,7 @@ def main():
     parser = argparse.ArgumentParser()
     parser.add_argument('--hup', action='store_true')
     parser.add_argument('--new', action='store_true')
-    parser.add_argument('--daemon', action='store_true')
+    parser.add_argument('-D', '--daemon', action='store_true')
     parser.add_argument('-d', '--debug', action='store_true')
     parser.add_argument('-t', '--test', action='store_true')
     args = parser.parse_args()

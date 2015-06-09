@@ -5,6 +5,7 @@ import time
 import select
 import logging
 import binascii
+import json
 
 D = logging.debug
 L = logging.info
@@ -134,5 +135,6 @@ def uptime():
     except Exception as e:
         return -1
 
-def hexnonce():
-    return binascii.hexlify(os.urandom(120))
+
+def json_load_round_float(s, **args):
+    return json.loads(s,parse_float = lambda f: round(float(f), 2), **args)

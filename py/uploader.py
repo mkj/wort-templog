@@ -22,7 +22,7 @@ class Uploader(object):
         yield from asyncio.sleep(5)
         while True:
             yield from self.do()
-            yield from self.server.sleep(config.UPLOAD_SLEEP)
+            yield from asyncio.sleep(config.UPLOAD_SLEEP)
 
     def get_tosend(self, readings):
         tosend = {}
@@ -62,12 +62,13 @@ class Uploader(object):
         try:
             readings = self.server.take_readings()
             tosend = self.get_tosend(readings)
+            D("tosend >>>%s<<<" % str(tosend))
             nreadings = len(readings)
             yield from self.send(tosend)
             readings = None
             D("Sent updated %d readings" % nreadings)
         except Exception as e:
-            E("Error in uploader: %s" % str(e))
+            EX("Error in uploader: %s" % str(e))
         finally:
             if readings is not None:
                 self.server.pushfront(readings)

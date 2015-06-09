@@ -22,6 +22,7 @@ class Fridge(object):
 
     def on(self):
         self.turn(True)
+        pass
 
     def off(self):
         self.turn(False)

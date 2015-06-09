@@ -35,7 +35,7 @@ class SensorDS18B20(object):
     def run(self):
         while True:
             yield from self.do()
-            yield from self.server.sleep(config.SENSOR_SLEEP)
+            yield from asyncio.sleep(config.SENSOR_SLEEP)
 
 
     @asyncio.coroutine

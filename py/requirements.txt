@@ -4,6 +4,6 @@ lockfile==0.10.2
 # sha256: 2zFqD89UuXAsr2ymGbdr4l1T9e4Hgbr_C7ni4DVfryQ
 python-daemon==2.0.5
 
-# sha256: IzjIUGznhTrC3377pzGj_QFafuJWGvqw1p3e-0NAP1o
-aiohttp==0.14.4
+# sha256: 6vR5rMmP_uCgKYgkZevyHzwwLhuUpBsWyKWmlbxhSQA
+aiohttp==0.16.3
 
