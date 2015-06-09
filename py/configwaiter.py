@@ -36,7 +36,7 @@ class ConfigWaiter(object):
                 300)
             D("waiter status %d" % r.status)
             if r.status == 200:
-                rawresp = yield from asyncio.wait_for(r.text(), 300)
+                rawresp = yield from asyncio.wait_for(r.text(), 600)
 
                 resp = utils.json_load_round_float(rawresp)
 
@@ -52,7 +52,7 @@ class ConfigWaiter(object):
                 yield from asyncio.sleep(30)
 
         except Exception as e:
-            E("Error watching config: %s" % str(e))
+            EX("Error watching config: %s" % str(e))
 
 
 
