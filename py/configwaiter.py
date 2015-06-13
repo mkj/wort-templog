@@ -1,4 +1,6 @@
 import asyncio
+import datetime
+
 import aiohttp
 
 import utils
@@ -12,6 +14,7 @@ class ConfigWaiter(object):
         self.server = server
         self.epoch_tag = None
         self.http_session = aiohttp.ClientSession()
+        self.limitlog = utils.NotTooOften(datetime.timedelta(minutes=15))
 
     @asyncio.coroutine
     def run(self):
@@ -49,14 +52,13 @@ class ConfigWaiter(object):
                 pass
             else:
                 # longer timeout to avoid spinning
+                text = yield from asyncio.wait_for(r.text(), 600)
+                D("Bad server response. %d %s" % (r.status, text))
                 yield from asyncio.sleep(30)
 
-        except asyncio.TimeoutError:
-            D("configwaiter http timed out")
-            pass
+        except aiohttp.errors.ClientError as e:
+            self.limitlog.log("Error with configwaiter: %s" % str(e))
+        except asyncio.TimeoutError as e:
+            self.limitlog.log("configwaiter http timed out: %s" % str(e))
         except Exception as e:
             EX("Error watching config: %s" % str(e))
-
-
-
-

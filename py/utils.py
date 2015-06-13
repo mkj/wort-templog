@@ -1,11 +1,12 @@
 import os
 import sys
-#import ctypes
+import ctypes
 import time
 import select
 import logging
 import binascii
 import json
+import datetime
 
 D = logging.debug
 L = logging.info
@@ -138,3 +139,35 @@ def uptime():
 
 def json_load_round_float(s, **args):
     return json.loads(s,parse_float = lambda f: round(float(f), 2), **args)
+
+class NotTooOften(object):
+    """ prevents things happening more than once per limit.
+    Isn't monotonic, good enough for logging. eg
+    self.logfailure = NotTooOften(180) # 3 minutes
+    ...
+    if self.logfailure():
+        L("blah")
+    """
+    def __init__(self, limit):
+        """ limit is a delay in seconds or TimeDelta """
+        if type(limit) is datetime.timedelta:
+            self.limit = limit
+        else:
+            self.limit = datetime.timedelta(seconds=limit)
+
+        # must be positive
+        assert self.limit > datetime.timedelta(0)
+        self.last = datetime.datetime(10, 1, 1)
+
+    def __call__(self):
+        if datetime.datetime.now() - self.last > self.limit:
+            self.last = datetime.datetime.now()
+            return True
+
+    def log(self, msg):
+        """ calls L(msg) if it isn't too often, otherwise D(msg)
+        """
+        if self():
+            L(msg + " (log interval %s)" % str(self.limit))
+        else:
+            D(msg)
