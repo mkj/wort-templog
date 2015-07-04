@@ -10,12 +10,14 @@ class Fridge(object):
 
     OVERSHOOT_MAX_DIV = 1800.0 # 30 mins
 
-    def __init__(self, server):
+    def __init__(self, server, nowait = False):
         self.server = server
         self.gpio = gpio.Gpio(config.FRIDGE_GPIO_PIN, "fridge")
         self.wort_valid_clock = 0
         self.fridge_on_clock = 0
         self.off()
+        if nowait:
+            self.fridge_off_clock = 0
 
     def turn(self, value):
         self.gpio.turn(value)

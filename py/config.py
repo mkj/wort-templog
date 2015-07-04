@@ -14,9 +14,12 @@ PARAMS_FILE = os.path.join(os.path.dirname(__file__), 'tempserver.conf')
 
 SENSOR_BASE_DIR = '/sys/devices/w1_bus_master1'
 FRIDGE_GPIO_PIN = 17
-WORT_NAME = '28-0000042cf4dd'
-FRIDGE_NAME = '28-0000042cccc4'
-AMBIENT_NAME = '28-0000042c6dbb'
+#WORT_NAME = '28-0000042cf4dd'
+#FRIDGE_NAME = '28-0000042cccc4'
+#AMBIENT_NAME = '28-0000042c6dbb'
+AMBIENT_NAME = 'missingambient'
+FRIDGE_NAME = 'missingfridge'
+WORT_NAME = '28-0000042cccc4' # was fridge
 INTERNAL_TEMPERATURE = '/sys/class/thermal/thermal_zone0/temp'
 
 HMAC_KEY = "a key"
