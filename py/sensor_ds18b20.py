@@ -88,6 +88,8 @@ class SensorDS18B20(object):
             E("No W1 sensors found")
             return []
         names = contents.split()
+        # only ds18b20
+        names = [n for n in names if n.startswith('28-')]
         return names
 
     def wort_name(self):
