@@ -131,7 +131,7 @@ def setup_logging(debug = False):
     if debug:
         level = logging.DEBUG
     logging.basicConfig(format='%(asctime)s %(message)s', 
-            datefmt='%m/%d/%Y %I:%M:%S %p',
+            datefmt='%d/%m/%Y %I:%M:%S %p',
             level=level)
     #logging.getLogger("asyncio").setLevel(logging.DEBUG)
 
