@@ -99,7 +99,9 @@ class Fridge(object):
 
             if not params.nowort and wort is not None:
                 if wort - overshoot < params.fridge_setpoint:
-                    L("wort has cooled enough, %(wort)f" % locals() )
+                    max_div = self.OVERSHOOT_MAX_DIV
+                    overshoot_factor = params.overshoot_factor
+                    L("wort has cooled enough, %(wort)fº (overshoot %(overshoot)fº = %(overshoot_factor)f * min(%(on_time)f) / %(max_div)f)" % locals() )
                     turn_off = True
             elif fridge is not None and fridge < fridge_min:
                     W("fridge off fallback, fridge %(fridge)f, min %(fridge_min)f" % locals())
