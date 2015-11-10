@@ -5,6 +5,7 @@ from utils import L,W,E,EX,D
 import config
 
 import gpio
+import utils
 
 class Fridge(object):
 
@@ -13,6 +14,7 @@ class Fridge(object):
     def __init__(self, server, nowait = False):
         self.server = server
         self.gpio = gpio.Gpio(config.FRIDGE_GPIO_PIN, "fridge")
+        self.integrator = utils.StepIntegrator(self.server.now, self.server.params.overshoot_delay)
         self.wort_valid_clock = 0
         self.fridge_on_clock = 0
         self.off()
@@ -21,10 +23,10 @@ class Fridge(object):
 
     def turn(self, value):
         self.gpio.turn(value)
+        self.integrator.turn(value)
 
     def on(self):
         self.turn(True)
-        pass
 
     def off(self):
         self.turn(False)
@@ -61,6 +63,8 @@ class Fridge(object):
         if wort is not None:
             self.wort_valid_clock = self.server.now()
 
+        self.integrator.set_limit(params.overshoot_delay)
+
         # Safety to avoid bad things happening to the fridge motor (?)
         # When it turns off don't start up again for at least FRIDGE_DELAY
         if not self.is_on() and off_time < config.FRIDGE_DELAY:
@@ -90,11 +94,7 @@ class Fridge(object):
             turn_off = False
             on_time = self.server.now() - self.fridge_on_clock
 
-            overshoot = 0
-            if on_time > params.overshoot_delay:
-                overshoot = params.overshoot_factor \
-                    * min(self.OVERSHOOT_MAX_DIV, on_time) \
-                    / self.OVERSHOOT_MAX_DIV
+            overshoot = params.overshoot_factor * self.integrator.integrate()
             D("on_time %(on_time)f, overshoot %(overshoot)f" % locals())
 
             if not params.nowort and wort is not None:

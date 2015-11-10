@@ -174,6 +174,9 @@ class NotTooOften(object):
 
 class StepIntegrator(object):
     """
+    Takes on/off events and a monotonically increasing timefn. Returns the integral 
+    of (now-limittime, now) over those events.
+
     >>> s = StepIntegrator(lambda: t, 40)
     >>> t = 1
     >>> s.turn(1)
@@ -211,6 +214,12 @@ class StepIntegrator(object):
         self._on_periods = []
         self._timefn = timefn
         self._limittime = limittime
+
+    def set_limit(self, limittime):
+        if self._limittime == limittime:
+            return
+        self._limittime = limittime
+        self.trim()
 
     def turn(self, value):
         if not self._on_periods:
