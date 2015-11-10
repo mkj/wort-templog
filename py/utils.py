@@ -171,3 +171,93 @@ class NotTooOften(object):
             L(msg + " (log interval %s)" % str(self.limit))
         else:
             D(msg)
+
+class StepIntegrator(object):
+    """
+    >>> s = StepIntegrator(lambda: t, 40)
+    >>> t = 1
+    >>> s.turn(1)
+    >>> t = 10
+    >>> s.turn(0)
+    >>> t = 20
+    >>> s.turn(1)
+    >>> t = 30
+    >>> print(s.integrate())
+    19
+    >>> s.turn(0)
+    >>> print(s.integrate())
+    19
+    >>> t = 35
+    >>> print(s.integrate())
+    19
+    >>> t = 42
+    >>> print(s.integrate())
+    18
+    >>> t = 52
+    >>> print(s.integrate())
+    10
+    >>> t = 69
+    >>> print(s.integrate())
+    1
+    >>> t = 70
+    >>> print(s.integrate())
+    0
+    >>> t = 170
+    >>> print(s.integrate())
+    0
+    """
+    def __init__(self, timefn, limittime):
+        # _on_periods is a list of [[start, end]]. End is None if still on
+        self._on_periods = []
+        self._timefn = timefn
+        self._limittime = limittime
+
+    def turn(self, value):
+        if not self._on_periods:
+            if value:
+                self._on_periods.append([self._timefn(), None])
+            return
+
+        # state hasn't changed
+        on_now = (self._on_periods[-1][1] is None)
+        if value == on_now:
+            return
+
+        if value:
+            self._on_periods.append([self._timefn(), None])
+        else:
+            self._on_periods[-1][1] = self._timefn()
+
+    def _trim(self):
+        begin = self._timefn() - self._limittime
+        # shortcut, first start is after begin
+        if not self._on_periods or self._on_periods[0][0] >= begin:
+            return
+
+        new_periods = []
+        for s, e  in self._on_periods:
+            if s == e:
+                continue
+            elif s >= begin:
+                new_periods.append([s,e])
+            elif e is not None and e < begin:
+                continue
+            else:
+                new_periods.append([begin, e])
+        self._on_periods = new_periods
+
+    def integrate(self):
+        self._trim()
+        tot = 0
+        for s, e in self._on_periods:
+            if e is None:
+                e = self._timefn()
+            tot += (e-s)
+        return tot
+
+
+
+
+
+
+
