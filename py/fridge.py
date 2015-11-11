@@ -92,10 +92,10 @@ class Fridge(object):
 
         if self.is_on():
             turn_off = False
-            on_time = self.server.now() - self.fridge_on_clock
+            on_percent = self.integrator.integrate() / params.overshoot_delay
 
-            overshoot = params.overshoot_factor * self.integrator.integrate()
-            D("on_time %(on_time)f, overshoot %(overshoot)f" % locals())
+            overshoot = params.overshoot_factor * on_percent
+            D("on_time %(on_percent)f, overshoot %(overshoot)f" % locals())
 
             if not params.nowort and wort is not None:
                 if wort - overshoot < params.fridge_setpoint:

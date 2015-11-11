@@ -7,6 +7,7 @@ import logging
 import binascii
 import json
 import datetime
+import collections
 
 D = logging.debug
 L = logging.info
@@ -172,6 +173,7 @@ class NotTooOften(object):
         else:
             D(msg)
 
+Period = collections.namedtuple('Period', 'start end')
 class StepIntegrator(object):
     """
     Takes on/off events and a monotonically increasing timefn. Returns the integral 
@@ -210,7 +212,7 @@ class StepIntegrator(object):
     0
     """
     def __init__(self, timefn, limittime):
-        # _on_periods is a list of [[start, end]]. End is None if still on
+        # _on_periods is a list of [period]. End is None if still on
         self._on_periods = []
         self._timefn = timefn
         self._limittime = limittime
@@ -219,28 +221,28 @@ class StepIntegrator(object):
         if self._limittime == limittime:
             return
         self._limittime = limittime
-        self.trim()
+        self._trim()
 
     def turn(self, value):
         if not self._on_periods:
             if value:
-                self._on_periods.append([self._timefn(), None])
+                self._on_periods.append(Period(self._timefn(), None))
             return
 
         # state hasn't changed
-        on_now = (self._on_periods[-1][1] is None)
+        on_now = (self._on_periods[-1].end is None)
         if value == on_now:
             return
 
         if value:
-            self._on_periods.append([self._timefn(), None])
+            self._on_periods.append(Period(self._timefn(), None))
         else:
-            self._on_periods[-1][1] = self._timefn()
+            self._on_periods[-1] = self._on_periods[-1]._replace(end = self._timefn())
 
     def _trim(self):
         begin = self._timefn() - self._limittime
         # shortcut, first start is after begin
-        if not self._on_periods or self._on_periods[0][0] >= begin:
+        if not self._on_periods or self._on_periods[0].start >= begin:
             return
 
         new_periods = []
@@ -248,11 +250,11 @@ class StepIntegrator(object):
             if s == e:
                 continue
             elif s >= begin:
-                new_periods.append([s,e])
+                new_periods.append(Period(s,e))
             elif e is not None and e < begin:
                 continue
             else:
-                new_periods.append([begin, e])
+                new_periods.append(Period(begin, e))
         self._on_periods = new_periods
 
     def integrate(self):
