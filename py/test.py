@@ -1,4 +1,3 @@
-#!/usr/bin/env python2.7
 import io
 
 import unittest
@@ -7,7 +6,7 @@ import params
 
 class TestSensors(unittest.TestCase):
     def setUp(self):
-        self.sensors = sensor_ds18b20.DS18B20s(None)
+        self.sensors = sensor_ds18b20.SensorDS18B20(None)
 
     def test_sensors_regex(self):
         f1 = """6e 01 4b 46 7f ff 02 10 71 : crc=71 YES
@@ -66,9 +65,7 @@ class TestParams(unittest.TestCase):
         jsbuf = io.StringIO()
 
         self.params.overshoot_delay = 123
-        self.params.save(f=jsbuf)
-
-        s = jsbuf.getvalue()
+        s = self.params.save_string()
         self.assertTrue('"overshoot_delay": 123' in s, msg=s)
             
 unittest.main()
