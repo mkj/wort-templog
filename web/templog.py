@@ -69,6 +69,12 @@ def graph():
 
 @route('/set/update', method='post')
 def set_update():
+    if not secure.check_user_hash(config.ALLOWED_USERS):
+        # the "Save" button should be disabled if the cert wasn't
+        # good
+        response.status = 403
+        return "No cert, dodginess"
+
     post_json = json.loads(request.forms.data)
 
     csrf_blob = post_json['csrf_blob']
@@ -79,7 +85,7 @@ def set_update():
 
     ret = log.update_params(post_json['params'])
     if not ret is True:
-        response.status = 403
+        response.status = 409 # Conflict
         return ret
         
     return "Good"
@@ -156,6 +162,11 @@ def env():
     #yield "\n"
     #var_lookup = environ['mod_ssl.var_lookup']
     #return var_lookup("SSL_SERVER_I_DN_O")
+
+@route('/h')
+def headers():
+    response.set_header('Content-Type', 'text/plain')
+    return '\n'.join("%s: %s" % x for x in request.headers.items())
 
 @route('/get_settings')
 def get_settings():
