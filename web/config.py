@@ -31,8 +31,8 @@ SENSOR_NAMES = {'sensor_28 CE B2 1A 03 00 00 99': "Old Fridge",
     'sensor_fridge_setpoint': 'Setpoint',
     'sensor_fridge_on': 'Cool',
     'sensor_28-0000042cf4dd': "Wort",
-    'sensor_28-0000042cccc4': "Fridge",
-    'sensor_28-0000042c6dbb': "Ambient",
+    'sensor_28-0000042cccc4': "OldFridge",
+    'sensor_28-0000042c6dbb': "Fridge",
     'sensor_internal': "Processor",
     }
 
