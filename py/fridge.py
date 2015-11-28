@@ -92,7 +92,8 @@ class Fridge(object):
 
         if self.is_on():
             turn_off = False
-            on_percent = self.integrator.integrate() / params.overshoot_delay
+            on_time = self.integrator.integrate()
+            on_percent =  on_time / params.overshoot_delay
 
             overshoot = params.overshoot_factor * on_percent
             D("on_time %(on_percent)f, overshoot %(overshoot)f" % locals())
