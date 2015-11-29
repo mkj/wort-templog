@@ -94,8 +94,13 @@ def set_update():
 def set():
     allowed = ["false", "true"][secure.check_user_hash(config.ALLOWED_USERS)]
     response.set_header('Cache-Control', 'no-cache')
+    inline_data = log.get_params()
+    if not inline_data:
+        response.status = 503 # Service Unavailable
+        return bottle.template('noparamsyet')
+
     return bottle.template('set', 
-        inline_data = log.get_params(), 
+        inline_data = inline_data,
         csrf_blob = secure.get_csrf_blob(),
         allowed = allowed)
 
