@@ -51,8 +51,6 @@ def create_rrd(sensor_id):
                 'DS:temp:GAUGE:600:-100:500',
                 'RRA:AVERAGE:0.5:1:1051200']
 
-    print>>sys.stderr, sensor_rrd_path(sensor_id) 
-
     rrdtool.create(sensor_rrd_path(sensor_id), 
                 '--start', 'now-60d',
                 *args)
@@ -143,8 +141,7 @@ def graph_png(start, length):
     sensor_lines.sort(key = lambda (legend, line): "Wort" in legend)
     graph_args += (line for (legend, line) in sensor_lines)
 
-    print>>sys.stderr, '\n'.join(graph_args)
-
+    #print>>sys.stderr, '\n'.join(graph_args)
 
     end = int(start+length)
     start = int(start)
@@ -289,11 +286,12 @@ def parse(params):
     debugf.write("Updated sensors in %.2f secs\n" % timedelta)
     debugf.flush()
 
+# types used here define the type of a field
 _FIELD_DEFAULTS = {
     'fridge_setpoint': 16.0,
     'fridge_difference': 0.2,
     'overshoot_delay': 720, # 12 minutes
-    'overshoot_factor': 1, # ºC
+    'overshoot_factor': 1.0, # ºC
     'disabled': False,
     'nowort': True,
     'fridge_range_lower': 3,
@@ -301,10 +299,14 @@ _FIELD_DEFAULTS = {
     }
 
 def get_params():
+    """ Can return None if there aren't any parameters yet,
+    otherwise returns the parameter list """
 
     r = []
 
     vals = read_current_params()
+    if not vals:
+        return None
 
     for k, v in _FIELD_DEFAULTS.iteritems():
         n = {'name': k, 'value': type(v)(vals[k])}

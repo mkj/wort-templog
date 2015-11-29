@@ -3,7 +3,7 @@
 <head>
 <title>Wort Temperature Log</title>
 <meta name="viewport" content="width=device-width">
-<style type="text/css"><!--
+<style type="text/css">
 span.no_selection {
     -webkit-user-select: none; // webkit (safari, chrome) browsers
     -moz-user-select: none; // mozilla browsers
@@ -19,7 +19,6 @@ span.codelink {
 	width: 100%;
 	max-width: {{graphwidth}}px;
 }
-//-->
 </style>
 <title></title>
 </head>
