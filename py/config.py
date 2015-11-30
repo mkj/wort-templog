@@ -18,7 +18,7 @@ FRIDGE_GPIO_PIN = 17
 #FRIDGE_NAME = '28-0000042cccc4'
 #AMBIENT_NAME = '28-0000042c6dbb'
 AMBIENT_NAME = 'missingambient'
-FRIDGE_NAME = 'missingfridge'
+FRIDGE_NAME = '28-0000042c6dbb'
 WORT_NAME = '28-0000042cccc4' # was fridge
 INTERNAL_TEMPERATURE = '/sys/class/thermal/thermal_zone0/temp'
 
