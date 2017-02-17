@@ -12,7 +12,7 @@ MAX_READINGS = 12*60*60 // SENSOR_SLEEP
 
 PARAMS_FILE = os.path.join(os.path.dirname(__file__), 'tempserver.conf')
 
-SENSOR_BASE_DIR = '/sys/devices/w1_bus_master2'
+SENSOR_BASE_DIR = '/sys/devices/w1_bus_master1'
 FRIDGE_GPIO_PIN = 17
 #WORT_NAME = '28-0000042cf4dd'
 #FRIDGE_NAME = '28-0000042cccc4'
