@@ -8,6 +8,7 @@
 <script>
 %include riot.min.js
 </script>
+<meta name="theme-color" content="#fff">
 
 <style type="text/css">
 span.no_selection {
@@ -36,7 +37,7 @@ input[type="button"] {
     -webkit-appearance: none;
     -moz-appearance: none;
     background:#fff;
-    vertical-align: center;
+    vertical-align: middle;
 }
 
 input[type="submit"] {
