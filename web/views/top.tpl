@@ -3,6 +3,7 @@
 <head>
 <title>Wort Temperature Log</title>
 <meta name="viewport" content="width=device-width">
+<meta name="theme-color" content="#fff">
 <style type="text/css">
 span.no_selection {
     -webkit-user-select: none; // webkit (safari, chrome) browsers

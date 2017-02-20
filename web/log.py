@@ -104,7 +104,7 @@ def graph_png(start, length):
             graph_args.append('DEF:raw%(vname)s=%(rrdfile)s:temp:AVERAGE' % locals())
             # limit max temp to 50
             graph_args.append('CDEF:%(vname)s=raw%(vname)s,38,GT,UNKN,raw%(vname)s,%(volts_mult)f,*,%(volts_shift)f,+,IF' % locals())
-            unit = '<span face="Liberation Serif">º</span>C'
+            unit = '<span face="Liberation Serif">°</span>C'
 
         format_last_value = None
         if unit:
@@ -291,7 +291,7 @@ _FIELD_DEFAULTS = {
     'fridge_setpoint': 16.0,
     'fridge_difference': 0.2,
     'overshoot_delay': 720, # 12 minutes
-    'overshoot_factor': 1.0, # ºC
+    'overshoot_factor': 1.0, # °C
     'disabled': False,
     'nowort': True,
     'fridge_range_lower': 3,
@@ -319,7 +319,7 @@ def get_params():
                 n['amount'] = 60
                 n['digits'] = 0;
             else:
-                n['unit'] = 'º'
+                n['unit'] = '°'
                 n['amount'] = 0.1;
                 n['digits'] = 1;
         n['kind'] = kind
