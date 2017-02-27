@@ -1,11 +1,13 @@
 import os
 import sys
-#import ctypes
+import ctypes
 import time
 import select
 import logging
 import binascii
 import json
+import datetime
+import collections
 
 D = logging.debug
 L = logging.info
@@ -138,3 +140,135 @@ def uptime():
 
 def json_load_round_float(s, **args):
     return json.loads(s,parse_float = lambda f: round(float(f), 2), **args)
+
+class NotTooOften(object):
+    """ prevents things happening more than once per limit.
+    Isn't monotonic, good enough for logging. eg
+    self.logfailure = NotTooOften(180) # 3 minutes
+    ...
+    if self.logfailure():
+        L("blah")
+    """
+    def __init__(self, limit):
+        """ limit is a delay in seconds or TimeDelta """
+        if type(limit) is datetime.timedelta:
+            self.limit = limit
+        else:
+            self.limit = datetime.timedelta(seconds=limit)
+
+        # must be positive
+        assert self.limit > datetime.timedelta(0)
+        self.last = datetime.datetime(10, 1, 1)
+
+    def __call__(self):
+        if datetime.datetime.now() - self.last > self.limit:
+            self.last = datetime.datetime.now()
+            return True
+
+    def log(self, msg):
+        """ calls L(msg) if it isn't too often, otherwise D(msg)
+        """
+        if self():
+            L(msg + " (log interval %s)" % str(self.limit))
+        else:
+            D(msg)
+
+Period = collections.namedtuple('Period', 'start end')
+class StepIntegrator(object):
+    """
+    Takes on/off events and a monotonically increasing timefn. Returns the integral 
+    of (now-limittime, now) over those events.
+
+    >>> s = StepIntegrator(lambda: t, 40)
+    >>> t = 1
+    >>> s.turn(1)
+    >>> t = 10
+    >>> s.turn(0)
+    >>> t = 20
+    >>> s.turn(1)
+    >>> t = 30
+    >>> print(s.integrate())
+    19
+    >>> s.turn(0)
+    >>> print(s.integrate())
+    19
+    >>> t = 35
+    >>> print(s.integrate())
+    19
+    >>> t = 42
+    >>> print(s.integrate())
+    18
+    >>> t = 52
+    >>> print(s.integrate())
+    10
+    >>> t = 69
+    >>> print(s.integrate())
+    1
+    >>> t = 70
+    >>> print(s.integrate())
+    0
+    >>> t = 170
+    >>> print(s.integrate())
+    0
+    """
+    def __init__(self, timefn, limittime):
+        # _on_periods is a list of [period]. End is None if still on
+        self._on_periods = []
+        self._timefn = timefn
+        self._limittime = limittime
+
+    def set_limit(self, limittime):
+        if self._limittime == limittime:
+            return
+        self._limittime = limittime
+        self._trim()
+
+    def turn(self, value):
+        if not self._on_periods:
+            if value:
+                self._on_periods.append(Period(self._timefn(), None))
+            return
+
+        # state hasn't changed
+        on_now = (self._on_periods[-1].end is None)
+        if value == on_now:
+            return
+
+        if value:
+            self._on_periods.append(Period(self._timefn(), None))
+        else:
+            self._on_periods[-1] = self._on_periods[-1]._replace(end = self._timefn())
+
+    def _trim(self):
+        begin = self._timefn() - self._limittime
+        # shortcut, first start is after begin
+        if not self._on_periods or self._on_periods[0].start >= begin:
+            return
+
+        new_periods = []
+        for s, e  in self._on_periods:
+            if s == e:
+                continue
+            elif s >= begin:
+                new_periods.append(Period(s,e))
+            elif e is not None and e < begin:
+                continue
+            else:
+                new_periods.append(Period(begin, e))
+        self._on_periods = new_periods
+
+    def integrate(self):
+        self._trim()
+        tot = 0
+        for s, e in self._on_periods:
+            if e is None:
+                e = self._timefn()
+            tot += (e-s)
+        return tot
+
+
+
+
+
+
+
