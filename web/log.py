@@ -221,8 +221,9 @@ def debug_file(mode='r'):
 
 def record_debug(params):
     f = debug_file('a+')
-    f.write('===== %s =====\n' % time.strftime('%a, %d %b %Y %H:%M:%S'))
+    f.write('===== start %s =====\n' % time.strftime('%a, %d %b %Y %H:%M:%S'))
     json.dump(params, f, sort_keys=True, indent=4)
+    f.write('===== end %s =====\n' % time.strftime('%a, %d %b %Y %H:%M:%S'))
     f.flush()
     return f
 
