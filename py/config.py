@@ -13,15 +13,16 @@ MAX_READINGS = 12*60*60 / SENSOR_SLEEP
 PARAMS_FILE = os.path.join(os.path.dirname(__file__), 'tempserver.conf')
 
 SENSOR_BASE_DIR = '/sys/devices/w1_bus_master1'
-FRIDGE_GPIO = '/sys/devices/virtual/gpio/gpio17'
+FRIDGE_GPIO_PIN = 17
 WORT_NAME = '28-0000042cf4dd'
 FRIDGE_NAME = '28-0000042cccc4'
 AMBIENT_NAME = '28-0000042c6dbb'
 INTERNAL_TEMPERATURE = '/sys/class/thermal/thermal_zone0/temp'
 
 HMAC_KEY = "a key"
-#UPDATE_URL = 'https://matt.ucc.asn.au/test/templog/update'
-UPDATE_URL = 'https://evil.ucc.asn.au/~matt/templog/update'
+SERVER_URL = 'https://evil.ucc.asn.au/~matt/templog'
+UPDATE_URL = "%s/update" % SERVER_URL
+SETTINGS_URL = "%s/get_settings" % SERVER_URL
 
 # site-local values overridden in localconfig, eg WORT_NAME, HMAC_KEY
 try:

@@ -1,9 +1,14 @@
-#from gevent import monkey; monkey.patch_all()
+# see templog-uwsgi.ini for arguments
+
+from gevent import monkey; monkey.patch_all()
 
 import os
 import sys
+import trace
 # Change working directory so relative paths (and template lookup) work again
 thisdir = os.path.dirname(__file__)
+if not thisdir:
+    thisdir="."
 os.chdir(thisdir)
 os.environ['LD_LIBRARY_PATH'] = '/home/matt/templog/web'
 

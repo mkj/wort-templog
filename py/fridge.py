@@ -1,60 +1,46 @@
 # -*- coding: utf-8 -*-
+import asyncio
+
 from utils import L,W,E,EX,D
 import config
-import gevent
 
-class Fridge(gevent.Greenlet):
+import gpio
+
+class Fridge(object):
 
     OVERSHOOT_MAX_DIV = 1800.0 # 30 mins
 
     def __init__(self, server):
-        gevent.Greenlet.__init__(self)
         self.server = server
-        self.setup_gpio()
+        self.gpio = gpio.Gpio(config.FRIDGE_GPIO_PIN, "fridge")
         self.wort_valid_clock = 0
         self.fridge_on_clock = 0
         self.off()
 
-    def setup_gpio(self):
-        dir_fn = '%s/direction' % config.FRIDGE_GPIO
-        with open(dir_fn, 'w') as f:
-            f.write('low')
-        val_fn = '%s/value' % config.FRIDGE_GPIO
-        # XXX - Fridge should have __enter__/__exit__, close the file there.
-        self.value_file = open(val_fn, 'r+')
-
     def turn(self, value):
-        self.value_file.seek(0)
-        if value:
-            self.value_file.write('1')
-        else:
-            self.value_file.write('0')
-        self.value_file.flush()
+        self.gpio.turn(value)
 
     def on(self):
         self.turn(True)
+        pass
 
     def off(self):
         self.turn(False)
         self.fridge_off_clock = self.server.now()
 
     def is_on(self):
-        self.value_file.seek(0)
-        buf = self.value_file.read().strip()
-        if buf == '0':
-            return False
-        if buf != '1':
-            E("Bad value read from gpio '%s': '%s'" 
-                % (self.value_file.name, buf))
-        return True
+        return self.gpio.get_state()
 
-    # greenlet subclassed
-    def _run(self):
+    @asyncio.coroutine
+    def run(self):
         if self.server.params.disabled:
             L("Fridge is disabled")
         while True:
-            self.do()
-            self.server.sleep(config.FRIDGE_SLEEP)
+            try:
+                self.do()
+                yield from self.server.sleep(config.FRIDGE_SLEEP)
+            except Exception as e:
+                EX("fridge failed")
 
     def do(self):
         """ this is the main fridge control logic """
@@ -96,6 +82,8 @@ class Fridge(gevent.Greenlet):
         if fridge is None:
             W("Invalid fridge sensor")
 
+        D("fridge on %s" % self.is_on())
+
         if self.is_on():
             turn_off = False
             on_time = self.server.now() - self.fridge_on_clock
@@ -124,6 +112,7 @@ class Fridge(gevent.Greenlet):
         else:
             # fridge is off
             turn_on = False
+            D("fridge %(fridge)s max %(fridge_max)s wort %(wort)s wort_max %(wort_max)s" % locals())
             if not params.nowort \
                 and wort is not None \
                 and wort >= wort_max:

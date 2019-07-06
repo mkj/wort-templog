@@ -2,27 +2,26 @@
 
 import os
 import re
-
-import gevent
-import gevent.threadpool
+import asyncio
+import concurrent.futures
 
 import config
 from utils import D,L,W,E,EX
 
-class DS18B20s(gevent.Greenlet):
+class SensorDS18B20(object):
 
     THERM_RE = re.compile('.* YES\n.*t=(.*)\n', re.MULTILINE)
 
     def __init__(self, server):
-        gevent.Greenlet.__init__(self)
         self.server = server
-        self.readthread = gevent.threadpool.ThreadPool(1)
+        self.readthread = concurrent.futures.ThreadPoolExecutor(max_workers=1)
         self.master_dir = config.SENSOR_BASE_DIR
 
+    @asyncio.coroutine
     def do(self):
         vals = {}
         for n in self.sensor_names():
-                value = self.do_sensor(n)
+                value = yield from self.do_sensor(n)
                 if value is not None:
                     vals[n] = value
 
@@ -32,26 +31,31 @@ class DS18B20s(gevent.Greenlet):
 
         self.server.add_reading(vals)
 
-    def _run(self):
+    @asyncio.coroutine
+    def run(self):
         while True:
-            self.do()
-            self.server.sleep(config.SENSOR_SLEEP)
+            yield from self.do()
+            yield from asyncio.sleep(config.SENSOR_SLEEP)
 
+
+    @asyncio.coroutine
     def read_wait(self, f):
-        # handles a blocking file read with a gevent threadpool. A
-        # real python thread performs the read while other gevent
-        # greenlets keep running.
+        # handles a blocking file read with a threadpool. A
+        # real python thread performs the read while other 
+        # asyncio tasks keep running.
         # the ds18b20 takes ~750ms to read, which is noticable
         # interactively.
-        return self.readthread.apply(f.read)
+        loop = asyncio.get_event_loop()
+        return loop.run_in_executor(None, f.read)
 
+    @asyncio.coroutine
     def do_sensor(self, s, contents = None):
         """ contents can be set by the caller for testing """
         try:
             if contents is None:
                 fn = os.path.join(self.master_dir, s, 'w1_slave')
-                f = open(fn, 'r')
-                contents = self.read_wait(f)
+                with open(fn, 'r') as f:
+                    contents = yield from self.read_wait(f)
 
             match = self.THERM_RE.match(contents)
             if match is None:
@@ -62,14 +66,15 @@ class DS18B20s(gevent.Greenlet):
                 E("Problem reading sensor '%s': %f" % (s, temp))
                 return None
             return temp
-        except Exception, e:
+        except Exception as e:
             EX("Problem reading sensor '%s': %s" % (s, str(e)))
             return None
 
     def do_internal(self):
         try:
-            return int(open(config.INTERNAL_TEMPERATURE, 'r').read()) / 1000.0
-        except Exception, e:
+            with open(config.INTERNAL_TEMPERATURE, 'r') as f:
+                return int(f.read()) / 1000.0
+        except Exception as e:
             EX("Problem reading internal sensor: %s" % str(e))
             return None
         
@@ -77,7 +82,8 @@ class DS18B20s(gevent.Greenlet):
     def sensor_names(self):
         """ Returns a sequence of sensorname """
         slaves_path = os.path.join(self.master_dir, "w1_master_slaves")
-        contents = open(slaves_path, 'r').read()
+        with open(slaves_path, 'r') as f:
+            contents = f.read()
         if 'not found' in contents:
             E("No W1 sensors found")
             return []

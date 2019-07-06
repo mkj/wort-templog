@@ -20,6 +20,9 @@ from colorsys import hls_to_rgb
 
 import config
 import atomicfile
+import settings
+
+fridge_settings = settings.Settings()
 
 def sensor_rrd_path(s):
     return '%s/sensor_%s.rrd' % (config.DATA_PATH, str(s))
@@ -47,8 +50,6 @@ def create_rrd(sensor_id):
                 '--step', '300',
                 'DS:temp:GAUGE:600:-100:500',
                 'RRA:AVERAGE:0.5:1:1051200']
-
-    print>>sys.stderr, sensor_rrd_path(sensor_id) 
 
     rrdtool.create(sensor_rrd_path(sensor_id), 
                 '--start', 'now-60d',
@@ -103,7 +104,7 @@ def graph_png(start, length):
             graph_args.append('DEF:raw%(vname)s=%(rrdfile)s:temp:AVERAGE' % locals())
             # limit max temp to 50
             graph_args.append('CDEF:%(vname)s=raw%(vname)s,38,GT,UNKN,raw%(vname)s,%(volts_mult)f,*,%(volts_shift)f,+,IF' % locals())
-            unit = '<span face="Liberation Serif">º</span>C'
+            unit = '<span face="Liberation Serif">°</span>C'
 
         format_last_value = None
         if unit:
@@ -115,11 +116,13 @@ def graph_png(start, length):
         width = config.LINE_WIDTH
         legend = config.SENSOR_NAMES.get(sensor, sensor)
         colour = config.SENSOR_COLOURS.get(legend, colour_from_string(sensor))
-        if format_last_value:
-            print_legend = '%s (%s)' % (legend, format_last_value)
-        else:
-            print_legend = legend
-        sensor_lines.append( (legend, 'LINE%(width)f:%(vname)s#%(colour)s:%(print_legend)s' % locals()) )
+        print_legend = ''
+        if legend in config.LEGEND_NAMES:
+            if format_last_value:
+                print_legend = ':%s (%s)' % (legend, format_last_value)
+            else:
+                print_legend = ":%s" % legend
+        sensor_lines.append( (legend, 'LINE%(width)f:%(vname)s#%(colour)s%(print_legend)s' % locals()) )
         if legend == 'Wort':
             wort_sensor = vname
         elif legend == 'Fridge':
@@ -127,20 +130,18 @@ def graph_png(start, length):
 
     # calculated bits
     colour = '000000'
-    print_legend = 'Heat'
     graph_args.append('CDEF:wortdel=%(wort_sensor)s,PREV(%(wort_sensor)s),-' % locals())
     graph_args.append('CDEF:tempdel=%(wort_sensor)s,%(fridge_sensor)s,-' % locals())
     graph_args.append('CDEF:fermheat=wortdel,80,*,tempdel,0.9,*,+' % locals())
     graph_args.append('CDEF:trendfermheat=fermheat,7200,TRENDNAN' % locals())
     graph_args.append('CDEF:limitfermheat=trendfermheat,5,+,11,MIN,2,MAX' % locals())
-    graph_args.append('LINE0.5:limitfermheat#%(colour)s:%(print_legend)s' % locals())
+    graph_args.append('LINE0.5:limitfermheat#%(colour)s' % locals())
 
     # lines are done afterwards so they can be layered
     sensor_lines.sort(key = lambda (legend, line): "Wort" in legend)
     graph_args += (line for (legend, line) in sensor_lines)
 
-    print>>sys.stderr, '\n'.join(graph_args)
-
+    #print>>sys.stderr, '\n'.join(graph_args)
 
     end = int(start+length)
     start = int(start)
@@ -220,8 +221,9 @@ def debug_file(mode='r'):
 
 def record_debug(params):
     f = debug_file('a+')
-    f.write('===== %s =====\n' % time.strftime('%a, %d %b %Y %H:%M:%S'))
+    f.write('===== start %s =====\n' % time.strftime('%a, %d %b %Y %H:%M:%S'))
     json.dump(params, f, sort_keys=True, indent=4)
+    f.write('===== end %s =====\n' % time.strftime('%a, %d %b %Y %H:%M:%S'))
     f.flush()
     return f
 
@@ -243,17 +245,12 @@ def time_rem(name, entries):
     tick_secs = int(entries['tick_secs'])
     return val_ticks + float(val_rem) * tick_secs / tick_wake
 
-def write_current_params(current_params):
-    out = {}
-    out['params'] = current_params
-    out['time'] = time.time()
-    atomicfile.AtomicFile("%s/current_params.txt" % config.DATA_PATH).write(
-        json.dumps(out, sort_keys=True, indent=4)+'\n')
+def write_current_params(current_params, current_epoch):
+    fridge_settings.update(current_params, current_epoch)
 
 def read_current_params():
-    p = atomicfile.AtomicFile("%s/current_params.txt" % config.DATA_PATH).read()
-    dat = json.loads(p)
-    return dat['params']
+    params, epochtag = fridge_settings.get()
+    return params
 
 def parse(params):
 
@@ -277,10 +274,11 @@ def parse(params):
 
     # one-off measurements here
     current_params = params['current_params']
+    current_epoch = params['current_params_epoch']
     measurements['fridge_on'] = [ (time.time(), params['fridge_on']) ]
     measurements['fridge_setpoint'] = [ (time.time(), current_params['fridge_setpoint']) ]
 
-    write_current_params(current_params)
+    write_current_params(current_params, current_epoch)
 
     for s, vs in measurements.iteritems():
         sensor_update(s, vs)
@@ -289,22 +287,34 @@ def parse(params):
     debugf.write("Updated sensors in %.2f secs\n" % timedelta)
     debugf.flush()
 
+# types used here define the type of a field
 _FIELD_DEFAULTS = {
     'fridge_setpoint': 16.0,
     'fridge_difference': 0.2,
     'overshoot_delay': 720, # 12 minutes
-    'overshoot_factor': 1, # ºC
+    'overshoot_factor': 1.0, # °C
     'disabled': False,
     'nowort': True,
     'fridge_range_lower': 3,
     'fridge_range_upper': 3,
     }
 
+def fake_params():
+    """ for quicker testing """
+    r = []
+    r.append({'name': 'going', 'value': 'true', 'kind': 'yesno', 'title': 'going'})
+    r.append({'name': 'temperature', 'value': 12.5, 'kind': 'number', 'title': 'temperature', 'digits': 1, 'amount': 0.1, 'unit': '°'})
+    return r
+
 def get_params():
+    """ Can return None if there aren't any parameters yet,
+    otherwise returns the parameter list """
 
     r = []
 
     vals = read_current_params()
+    if not vals:
+        return None
 
     for k, v in _FIELD_DEFAULTS.iteritems():
         n = {'name': k, 'value': type(v)(vals[k])}
@@ -317,7 +327,7 @@ def get_params():
                 n['amount'] = 60
                 n['digits'] = 0;
             else:
-                n['unit'] = 'º'
+                n['unit'] = '°'
                 n['amount'] = 0.1;
                 n['digits'] = 1;
         n['kind'] = kind
@@ -325,26 +335,6 @@ def get_params():
         r.append(n)
 
     return json.dumps(r, sort_keys=True, indent=4)
-
-def send_params(params):
-    # 'templog_receive' is ignored due to authorized_keys
-    # restrictions. the rpi has authorized_keys with
-    # command="/home/matt/templog/venv/bin/python /home/matt/templog/py/receive.py",no-pty,no-port-forwarding,no-x11-forwarding,no-agent-forwarding ssh-rsa AAAAB3NzaC....
-    args = [config.SSH_PROG, '-i', config.SSH_KEYFILE,
-        config.SSH_HOST, 'templog_receive']
-    try:
-        p = subprocess.Popen(args, stdin=subprocess.PIPE, stdout=subprocess.PIPE)
-        (out, err) = p.communicate(json.dumps(params))
-    except OSError, e:
-        print>>sys.stderr, e
-        return "Failed update"
-
-    if 'Good Update' in out:
-        return True
-
-    print>>sys.stderr, "Strange return from update:"
-    print>>sys.stderr, out
-    return "Unexpected update result"
 
 def same_type(a, b):
     ta = type(a)
@@ -370,10 +360,7 @@ def update_params(p):
         if not same_type(v, _FIELD_DEFAULTS[k]):
             return "Bad type for %s, %s vs %s" % (k , type(v), type(_FIELD_DEFAULTS[k]))
 
-    ret = send_params(params) 
-    if ret is not True:
-        return "Failed sending params: %s" % ret
-
+    fridge_settings.update(params)
     return True
 
 

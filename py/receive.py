@@ -28,8 +28,8 @@ def main():
 
     def_params = params.Params()
 
-    if def_params.viewkeys() != new_params.viewkeys():
-        diff = def_params.viewkeys() ^ new_params.viewkeys()
+    if def_params.keys() != new_params.keys():
+        diff = def_params.keys() ^ new_params.keys()
         return "Mismatching params, %s" % str(diff)
 
     for k, v in new_params.items():
@@ -48,7 +48,7 @@ def main():
         t.close()
 
         os.rename(name, config.PARAMS_FILE)
-    except Exception, e:
+    except Exception as e:
         return "Problem: %s" % e
 
     try:
@@ -56,11 +56,11 @@ def main():
         if pid < 2:
             return "Bad pid %d" % pid
         os.kill(pid, signal.SIGHUP)
-    except Exception, e:
+    except Exception as e:
         return "HUP problem: %s" % e
 
     return 'Good Update'
 
 if __name__ == '__main__':
-    print main()
+    print(main())
 

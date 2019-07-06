@@ -8,6 +8,7 @@
 <script>
 %include riot.min.js
 </script>
+<meta name="theme-color" content="#fff">
 
 <style type="text/css">
 span.no_selection {
@@ -20,6 +21,10 @@ body {
     font-family: sans-serif;
 }
 
+a {
+    color: #000;
+}
+
 input {
     border: 2px solid transparent;
     border-radius: 4px;
@@ -28,6 +33,8 @@ input {
     padding: 0;
     font-size: 30pt;
     height: 34pt;
+    vertical-align: middle;
+    line-height: 1em;
 }
 
 input[type="button"] {
@@ -36,7 +43,6 @@ input[type="button"] {
     -webkit-appearance: none;
     -moz-appearance: none;
     background:#fff;
-    vertical-align: center;
 }
 
 input[type="submit"] {
@@ -78,6 +84,10 @@ input[type="button"]#savebutton {
 
 span.inputrow {
     //vertical-align: center;
+}
+
+#mailauth {
+    display: none;
 }
 
 </style>
@@ -122,6 +132,10 @@ function Setter(params, csrf_blob) {
         if (typeof(param.oldvalue) == "boolean")
         {
             param.oldvaluetext = param.oldvalue ? "Yes" : "No";
+        }
+        else if (param.kind == "number")
+        {
+            param.oldvaluetext = Number(param.oldvalue).toFixed(param.digits)
         }
         else
         {
@@ -228,6 +242,7 @@ window.onload = function() {
     if (!allowed) {
         $("#savebutton").attr("disabled", true);
         $('#status').text("No cert")
+        $('#mailauth').show();
     }
 
     $("#savebutton").click(function() {
@@ -313,6 +328,8 @@ function add(param)
 <span id="savebox">
 <input type="button" id="savebutton" value="Save"/>
 <span id="status"></span>
+<span id="mailauth"> <a href="mailto:{{email}}?Subject=Allow%20Templog&body=Hash%20is%20{{cookie_hash}}">Email</a>
+</span>
 </span>
 
 
