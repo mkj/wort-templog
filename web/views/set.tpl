@@ -21,6 +21,10 @@ body {
     font-family: sans-serif;
 }
 
+a {
+    color: #000;
+}
+
 input {
     border: 2px solid transparent;
     border-radius: 4px;
@@ -80,6 +84,10 @@ input[type="button"]#savebutton {
 
 span.inputrow {
     //vertical-align: center;
+}
+
+#mailauth {
+    display: none;
 }
 
 </style>
@@ -234,6 +242,7 @@ window.onload = function() {
     if (!allowed) {
         $("#savebutton").attr("disabled", true);
         $('#status').text("No cert")
+        $('#mailauth').show();
     }
 
     $("#savebutton").click(function() {
@@ -319,6 +328,8 @@ function add(param)
 <span id="savebox">
 <input type="button" id="savebutton" value="Save"/>
 <span id="status"></span>
+<span id="mailauth"> <a href="mailto:{{email}}?Subject=Allow%20Templog&body=Hash%20is%20{{cookie_hash}}">Email</a>
+</span>
 </span>
 
 

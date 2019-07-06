@@ -9,12 +9,11 @@ DATA_PATH = '/home/matt/templog/web/data'
 
 # local config items
 HMAC_KEY = 'a hmac key' 
-ALLOWED_USERS = [] # list of sha1 hashes of client ssl keys
-SSH_HOST = 'remotehost'
-SSH_KEYFILE = '/home/matt/.ssh/somekey'
-SSH_PROG = 'ssh'
+ALLOWED_USERS = [] # list of hashes allowed, as provided by the Email link
 
 UPDATE_URL = 'http://evil.ucc.asn.au/~matt/templog/update'
+
+EMAIL = "test@example.com"
 
 GRAPH_WIDTH = 600
 GRAPH_HEIGHT = 700

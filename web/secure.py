@@ -11,47 +11,39 @@ import bottle
 
 import config
 
-__all__ = ["get_csrf_blob", "check_csrf_blob", "setup_csrf", "get_user_hash",
-"check_user_hash"]
+__all__ = [
+    "get_csrf_blob", 
+    "check_csrf_blob", 
+    "setup_csrf", 
+    "check_cookie",
+    "init_cookie",
+]
+
+AUTH_COOKIE = 'templogauth'
+AUTH_COOKIE_LEN = 16
 
 HASH=hashlib.sha1
 
 CLEAN_RE = re.compile('[^a-z0-9A-Z]')
 
-def clean_hash(h):
-    return CLEAN_RE.sub('', h.lower())
+def cookie_hash(c):
+    return hashlib.sha256(c).hexdigest()
 
-def get_user_hash():
+def init_cookie():
+    """ Generates a new httponly auth cookie if required. 
+    Returns the hash of the cookie (new or existing)
     """
-    Uses the following apache config. 
-    Needs a separate port or IP to no-certificate SSL, SNI isn't good enough.
+    c = bottle.request.get_cookie(AUTH_COOKIE)
+    if not c:
+        c = binascii.hexlify(os.urandom(AUTH_COOKIE_LEN))
+        bottle.response.set_cookie(AUTH_COOKIE, c, secure=True, httponly=True)
+    return cookie_hash(c)
 
-    <location /~matt/templog/set>
-    Require all granted
-    SSLVerifyClient optional_no_ca
-    SSLVerifyDepth 1
-    SSLOptions +StdEnvVars +ExportCertData +OptRenegotiate
-    </location>
-    """
-
-    verify = bottle.request.environ.get('SSL_CLIENT_VERIFY', '')
-    if not (verify == 'GENEROUS' or verify == 'SUCCESS'):
-        return 'FAILVERIFY'
-    blob = bottle.request.environ.get('SSL_CLIENT_CERT')
-    if not blob:
-        return 'NOCERT'
-
-    b64 = ''.join(l for l in blob.split('\n')
-        if not l.startswith('-'))
-
-    return HASH(binascii.a2b_base64(b64)).hexdigest()
-
-def check_user_hash(allowed_users):
-    current_hash = clean_hash(get_user_hash())
-    for a in allowed_users:
-        if current_hash == clean_hash(a):
-            return True
-    return False
+def check_cookie(allowed_users):
+    c = bottle.request.get_cookie(AUTH_COOKIE)
+    if not c:
+        return False
+    return cookie_hash(c) in allowed_users
 
 def setup_csrf():
     NONCE_SIZE=16
@@ -72,7 +64,7 @@ def setup_csrf():
 
 def get_csrf_blob():
     expiry = int(config.CSRF_TIMEOUT + time.time())
-    content = '%s-%s' % (get_user_hash(), expiry)
+    content = '%s-%s' % (init_cookie(), expiry)
     mac = hmac.new(_csrf_key, content).hexdigest()
     return "%s-%s" % (content, mac)
 
@@ -83,7 +75,7 @@ def check_csrf_blob(blob):
         return False
 
     user, expiry, mac = toks
-    if user != get_user_hash():
+    if user != init_cookie():
         print>>sys.stderr, "wrong user"
         return False
 
