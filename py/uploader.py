@@ -71,7 +71,7 @@ class Uploader(object):
             yield from self.send(tosend)
             readings = None
             D("Sent updated %d readings" % nreadings)
-        except aiohttp.errors.ClientError as e:
+        except aiohttp.ClientResponseError as e:
             self.limitlog.log("Error with uploader: %s" % str(e))
         except asyncio.TimeoutError as e:
             self.limitlog.log("uploader http timed out: %s" % str(e))
