@@ -29,6 +29,8 @@ input {
     padding: 0;
     font-size: 30pt;
     height: 34pt;
+    vertical-align: middle;
+    line-height: 1em;
 }
 
 input[type="button"] {
@@ -37,7 +39,6 @@ input[type="button"] {
     -webkit-appearance: none;
     -moz-appearance: none;
     background:#fff;
-    vertical-align: middle;
 }
 
 input[type="submit"] {
