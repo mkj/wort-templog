@@ -1,7 +1,5 @@
 import os
 
-import RPi.GPIO as GPIO
-
 from utils import L,D,EX,W
 
 __all__ = ["Gpio"]
