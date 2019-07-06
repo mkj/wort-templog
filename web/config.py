@@ -24,15 +24,18 @@ GRAPH_LEFT_MARGIN = 65
 
 LINE_WIDTH = 2
 
-SENSOR_NAMES = {'sensor_28 CE B2 1A 03 00 00 99': "Old Fridge",
+SENSOR_NAMES = {
+    'sensor_28 CE B2 1A 03 00 00 99': "Old Fridge",
     'sensor_28 CC C1 1A 03 00 00 D4': "Old Ambient",
     'sensor_28 49 BC 1A 03 00 00 54': "Old Wort",
     'sensor_voltage': 'Voltage',
     'sensor_fridge_setpoint': 'Setpoint',
     'sensor_fridge_on': 'Cool',
-    'sensor_28-0000042cf4dd': "Wort",
+    'sensor_28-0000042cf4dd': "New Old Wort",
+    'sensor_28-0000042d36cc': "Wort",
     'sensor_28-0000042cccc4': "OldFridge",
-    'sensor_28-0000042c6dbb': "Fridge",
+    'sensor_28-0000042c6dbb': "New Old Fridge",
+    'sensor_28-0000068922df': "Fridge",
     'sensor_internal': "Processor",
     }
 
