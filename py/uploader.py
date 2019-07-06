@@ -15,6 +15,7 @@ import utils
 class Uploader(object):
     def __init__(self, server):
         self.server = server
+        self.limitlog = utils.NotTooOften(600)
 
     @asyncio.coroutine
     def run(self):
@@ -43,6 +44,9 @@ class Uploader(object):
 
         return tosend
 
+    class BadServerResponse(Exception):
+        pass
+
     @asyncio.coroutine
     def send(self, tosend):
         js = json.dumps(tosend)
@@ -55,7 +59,7 @@ class Uploader(object):
         r = yield from asyncio.wait_for(aiohttp.request('post', config.UPDATE_URL, data=send_data), 60)
         result = yield from asyncio.wait_for(r.text(), 60)
         if r.status == 200 and result != 'OK':
-            raise Exception("Server returned %s" % result)
+            raise BadServerResponse("Server returned %s" % result)
 
     @asyncio.coroutine
     def do(self):
@@ -67,6 +71,12 @@ class Uploader(object):
             yield from self.send(tosend)
             readings = None
             D("Sent updated %d readings" % nreadings)
+        except aiohttp.errors.ClientError as e:
+            self.limitlog.log("Error with uploader: %s" % str(e))
+        except asyncio.TimeoutError as e:
+            self.limitlog.log("uploader http timed out: %s" % str(e))
+        except self.BadServerResponse as e:
+            self.limitlog.log("Bad reply with uploader: %s" % str(e))
         except Exception as e:
             EX("Error in uploader: %s" % str(e))
         finally:

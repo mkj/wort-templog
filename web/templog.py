@@ -132,11 +132,11 @@ def get_request_zoom():
                 + timedelta(minutes=(float(xpos) / (config.GRAPH_WIDTH * config.ZOOM)) * minutes)
             minutes = int(minutes / ZOOM_SCALE)
 
-            end = click_time + timedelta(minutes=minutes/2)
+            end = click_time + timedelta(minutes=minutes//2)
         else:
             # zoom out
             minutes = int(minutes*ZOOM_SCALE)
-            end += timedelta(minutes=minutes/2)
+            end += timedelta(minutes=minutes//2)
 
     if end > datetime.now():
         end = datetime.now()

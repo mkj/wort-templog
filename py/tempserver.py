@@ -22,16 +22,17 @@ import configwaiter
 
 
 class Tempserver(object):
-    def __init__(self, test_mode):
+    def __init__(self, test_mode, nowait):
         self.readings = []
         self.current = (None, None)
         self.fridge = None
         self._wakeup = asyncio.Event()
         self._test_mode = test_mode
+        self._nowait = nowait
 
     def __enter__(self):
         self.params = params.Params()
-        self.fridge = fridge.Fridge(self)
+        self.fridge = fridge.Fridge(self, self._nowait)
         self.uploader = uploader.Uploader(self)
         self.configwaiter = configwaiter.ConfigWaiter(self)
         self.params.load()
@@ -130,12 +131,12 @@ def setup_logging(debug = False):
     if debug:
         level = logging.DEBUG
     logging.basicConfig(format='%(asctime)s %(message)s', 
-            datefmt='%m/%d/%Y %I:%M:%S %p',
+            datefmt='%d/%m/%Y %I:%M:%S %p',
             level=level)
     #logging.getLogger("asyncio").setLevel(logging.DEBUG)
 
-def start(test_mode):
-    with Tempserver(test_mode) as server:
+def start(test_mode, nowait):
+    with Tempserver(test_mode, nowait) as server:
         server.run()
 
 def main():
@@ -145,6 +146,7 @@ def main():
     parser.add_argument('-D', '--daemon', action='store_true')
     parser.add_argument('-d', '--debug', action='store_true')
     parser.add_argument('-t', '--test', action='store_true')
+    parser.add_argument('--nowait', action='store_true')
     args = parser.parse_args()
 
     setup_logging(args.debug)
@@ -205,10 +207,10 @@ def main():
         logpath = os.path.join(os.path.dirname(__file__), 'tempserver.log')
         logf = open(logpath, 'a+')
         with daemon.DaemonContext(pidfile=pidf, stdout=logf, stderr = logf):
-            start(args.test)
+            start(args.test, args.nowait)
     else:
         with pidf:
-            start(args.test)
+            start(args.test, args.nowait)
 
 if __name__ == '__main__':
     main()

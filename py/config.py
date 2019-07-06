@@ -8,15 +8,18 @@ FRIDGE_DELAY = 600 # 10 mins, to avoid fridge damage from frequent cycling off/o
 FRIDGE_WORT_INVALID_TIME = 300 # 5 mins
 
 # 12 hours of "offline" readings stored
-MAX_READINGS = 12*60*60 / SENSOR_SLEEP
+MAX_READINGS = 12*60*60 // SENSOR_SLEEP
 
 PARAMS_FILE = os.path.join(os.path.dirname(__file__), 'tempserver.conf')
 
 SENSOR_BASE_DIR = '/sys/devices/w1_bus_master1'
 FRIDGE_GPIO_PIN = 17
-WORT_NAME = '28-0000042cf4dd'
-FRIDGE_NAME = '28-0000042cccc4'
-AMBIENT_NAME = '28-0000042c6dbb'
+#WORT_NAME = '28-0000042cf4dd'
+#FRIDGE_NAME = '28-0000042cccc4'
+#AMBIENT_NAME = '28-0000042c6dbb'
+AMBIENT_NAME = 'missingambient'
+FRIDGE_NAME = '28-0000042c6dbb'
+WORT_NAME = '28-0000042cccc4' # was fridge
 INTERNAL_TEMPERATURE = '/sys/class/thermal/thermal_zone0/temp'
 
 HMAC_KEY = "a key"

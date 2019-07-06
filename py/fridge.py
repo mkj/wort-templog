@@ -5,24 +5,28 @@ from utils import L,W,E,EX,D
 import config
 
 import gpio
+import utils
 
 class Fridge(object):
 
     OVERSHOOT_MAX_DIV = 1800.0 # 30 mins
 
-    def __init__(self, server):
+    def __init__(self, server, nowait = False):
         self.server = server
         self.gpio = gpio.Gpio(config.FRIDGE_GPIO_PIN, "fridge")
+        self.integrator = utils.StepIntegrator(self.server.now, self.server.params.overshoot_delay)
         self.wort_valid_clock = 0
         self.fridge_on_clock = 0
         self.off()
+        if nowait:
+            self.fridge_off_clock = 0
 
     def turn(self, value):
         self.gpio.turn(value)
+        self.integrator.turn(value)
 
     def on(self):
         self.turn(True)
-        pass
 
     def off(self):
         self.turn(False)
@@ -59,6 +63,8 @@ class Fridge(object):
         if wort is not None:
             self.wort_valid_clock = self.server.now()
 
+        self.integrator.set_limit(params.overshoot_delay)
+
         # Safety to avoid bad things happening to the fridge motor (?)
         # When it turns off don't start up again for at least FRIDGE_DELAY
         if not self.is_on() and off_time < config.FRIDGE_DELAY:
@@ -86,18 +92,17 @@ class Fridge(object):
 
         if self.is_on():
             turn_off = False
-            on_time = self.server.now() - self.fridge_on_clock
+            on_time = self.integrator.integrate()
+            on_percent =  on_time / params.overshoot_delay
 
-            overshoot = 0
-            if on_time > params.overshoot_delay:
-                overshoot = params.overshoot_factor \
-                    * min(self.OVERSHOOT_MAX_DIV, on_time) \
-                    / self.OVERSHOOT_MAX_DIV
-            D("on_time %(on_time)f, overshoot %(overshoot)f" % locals())
+            overshoot = params.overshoot_factor * on_percent
+            D("on_time %(on_percent)f, overshoot %(overshoot)f" % locals())
 
             if not params.nowort and wort is not None:
                 if wort - overshoot < params.fridge_setpoint:
-                    L("wort has cooled enough, %(wort)f" % locals() )
+                    max_div = self.OVERSHOOT_MAX_DIV
+                    overshoot_factor = params.overshoot_factor
+                    L("wort has cooled enough, %(wort)fº (overshoot %(overshoot)fº = %(overshoot_factor)f * min(%(on_time)f) / %(max_div)f)" % locals() )
                     turn_off = True
             elif fridge is not None and fridge < fridge_min:
                     W("fridge off fallback, fridge %(fridge)f, min %(fridge_min)f" % locals())
