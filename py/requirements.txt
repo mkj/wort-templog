@@ -1,9 +1,5 @@
-# sha256: nkIlLxfR3YnuMXReDE--WIYsJRR-sO9SlcnNm8tOosE
 lockfile==0.10.2
-
-# sha256: 2zFqD89UuXAsr2ymGbdr4l1T9e4Hgbr_C7ni4DVfryQ
-python-daemon==2.0.5
-
-# sha256: 6vR5rMmP_uCgKYgkZevyHzwwLhuUpBsWyKWmlbxhSQA
+python-daemon==2.2.3
 aiohttp==0.16.3
-
+chardet==2.3.0
+docutils==0.14

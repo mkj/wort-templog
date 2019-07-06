@@ -62,7 +62,7 @@ class SensorDS18B20(object):
                 D("no match")
                 return None
             temp = int(match.groups(1)[0]) / 1000.0
-            if temp > 80:
+            if temp > 80 or temp == 0:
                 E("Problem reading sensor '%s': %f" % (s, temp))
                 return None
             return temp

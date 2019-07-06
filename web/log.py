@@ -221,8 +221,9 @@ def debug_file(mode='r'):
 
 def record_debug(params):
     f = debug_file('a+')
-    f.write('===== %s =====\n' % time.strftime('%a, %d %b %Y %H:%M:%S'))
+    f.write('===== start %s =====\n' % time.strftime('%a, %d %b %Y %H:%M:%S'))
     json.dump(params, f, sort_keys=True, indent=4)
+    f.write('===== end %s =====\n' % time.strftime('%a, %d %b %Y %H:%M:%S'))
     f.flush()
     return f
 
@@ -298,6 +299,13 @@ _FIELD_DEFAULTS = {
     'fridge_range_upper': 3,
     }
 
+def fake_params():
+    """ for quicker testing """
+    r = []
+    r.append({'name': 'going', 'value': 'true', 'kind': 'yesno', 'title': 'going'})
+    r.append({'name': 'temperature', 'value': 12.5, 'kind': 'number', 'title': 'temperature', 'digits': 1, 'amount': 0.1, 'unit': '°'})
+    return r
+
 def get_params():
     """ Can return None if there aren't any parameters yet,
     otherwise returns the parameter list """
@@ -327,26 +335,6 @@ def get_params():
         r.append(n)
 
     return json.dumps(r, sort_keys=True, indent=4)
-
-def send_params(params):
-    # 'templog_receive' is ignored due to authorized_keys
-    # restrictions. the rpi has authorized_keys with
-    # command="/home/matt/templog/venv/bin/python /home/matt/templog/py/receive.py",no-pty,no-port-forwarding,no-x11-forwarding,no-agent-forwarding ssh-rsa AAAAB3NzaC....
-    args = [config.SSH_PROG, '-i', config.SSH_KEYFILE,
-        config.SSH_HOST, 'templog_receive']
-    try:
-        p = subprocess.Popen(args, stdin=subprocess.PIPE, stdout=subprocess.PIPE)
-        (out, err) = p.communicate(json.dumps(params))
-    except OSError, e:
-        print>>sys.stderr, e
-        return "Failed update"
-
-    if 'Good Update' in out:
-        return True
-
-    print>>sys.stderr, "Strange return from update:"
-    print>>sys.stderr, out
-    return "Unexpected update result"
 
 def same_type(a, b):
     ta = type(a)

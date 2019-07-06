@@ -69,7 +69,7 @@ def graph():
 
 @route('/set/update', method='post')
 def set_update():
-    if not secure.check_user_hash(config.ALLOWED_USERS):
+    if not secure.check_cookie(config.ALLOWED_USERS):
         # the "Save" button should be disabled if the cert wasn't
         # good
         response.status = 403
@@ -92,9 +92,13 @@ def set_update():
 
 @route('/set')
 def set():
-    allowed = ["false", "true"][secure.check_user_hash(config.ALLOWED_USERS)]
+    cookie_hash = secure.init_cookie()
+    allowed = ["false", "true"][secure.check_cookie(config.ALLOWED_USERS)]
     response.set_header('Cache-Control', 'no-cache')
-    inline_data = log.get_params()
+    if request.query.fake:
+        inline_data = log.fake_params()
+    else:
+        inline_data = log.get_params()
     if not inline_data:
         response.status = 503 # Service Unavailable
         return bottle.template('noparamsyet')
@@ -102,7 +106,9 @@ def set():
     return bottle.template('set', 
         inline_data = inline_data,
         csrf_blob = secure.get_csrf_blob(),
-        allowed = allowed)
+        allowed = allowed,
+        cookie_hash = cookie_hash,
+        email = urllib.quote(config.EMAIL))
 
 def get_request_zoom():
     """ returns (length, end) tuple.
