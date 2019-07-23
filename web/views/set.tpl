@@ -100,7 +100,7 @@ span.inputrow {
 <span class="existing">{title} <span id="oldvalue">{oldvaluetext}{unit}</span></span>
 <br/>
 <span class="inputrow">
-<input type="number" class="input" name="input_{name}" />
+<input type="number" class="input" name="input_{name}" step="{numberstep}"/>
 <input type="button" class="button_down" value="-"/>
 <input type="button" class="button_up" value="+"/>
 </span>
@@ -136,6 +136,7 @@ function Setter(params, csrf_blob) {
         else if (param.kind == "number")
         {
             param.oldvaluetext = Number(param.oldvalue).toFixed(param.digits)
+            param.numberstep = 0.1**param.digits
         }
         else
         {
