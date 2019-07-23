@@ -36,7 +36,8 @@ def init_cookie():
     c = bottle.request.get_cookie(AUTH_COOKIE)
     if not c:
         c = binascii.hexlify(os.urandom(AUTH_COOKIE_LEN))
-        bottle.response.set_cookie(AUTH_COOKIE, c, secure=True, httponly=True)
+        years = 60*60*24*365
+        bottle.response.set_cookie(AUTH_COOKIE, c, secure=True, httponly=True, max_age=10*years)
     return cookie_hash(c)
 
 def check_cookie(allowed_users):
