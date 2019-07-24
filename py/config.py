@@ -5,7 +5,12 @@ SENSOR_SLEEP = 15 # same for this.
 UPLOAD_SLEEP = 83 # nice and prime
 
 FRIDGE_DELAY = 600 # 10 mins, to avoid fridge damage from frequent cycling off/on
-FRIDGE_WORT_INVALID_TIME = 300 # 5 mins
+
+# time to wait before just using fridge for fallback
+FRIDGE_WORT_INVALID_TIME = 180 # 3 minutes
+# time to wait before turning it off if neither sensors work.
+# must be > FRIDGE_WORT_INVALID_TIME 
+ALL_INVALID_TIME = 480 # 8 minutes
 
 # 12 hours of "offline" readings stored
 MAX_READINGS = 12*60*60 // SENSOR_SLEEP

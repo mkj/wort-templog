@@ -16,6 +16,7 @@ class Fridge(object):
         self.gpio = gpio.Gpio(config.FRIDGE_GPIO_PIN, "fridge")
         self.integrator = utils.StepIntegrator(self.server.now, self.server.params.overshoot_delay)
         self.wort_valid_clock = 0
+        self.fridge_valid_clock = 0
         self.fridge_on_clock = 0
         self.off()
         if nowait:
@@ -63,6 +64,9 @@ class Fridge(object):
         if wort is not None:
             self.wort_valid_clock = self.server.now()
 
+        if fridge is not None:
+            self.fridge_valid_clock = self.server.now()
+
         self.integrator.set_limit(params.overshoot_delay)
 
         # Safety to avoid bad things happening to the fridge motor (?)
@@ -108,6 +112,13 @@ class Fridge(object):
                     W("fridge off fallback, fridge %(fridge)f, min %(fridge_min)f" % locals())
                     if wort is None:
                         W("wort has been invalid for %d" % (self.server.now() - self.wort_valid_clock))
+                    turn_off = True
+
+            if wort is None and fridge is None:
+                invalid_time = self.server.now() - max(self.wort_valid_clock, self.fridge_valid_clock)
+                D("both sensors broken, invalid_time %(invalid_time)f" % locals())
+                if invalid_time > config.ALL_INVALID_TIME:
+                    L("Both sensors broken for %(invalid_time)f seconds" % locals())
                     turn_off = True
 
             if turn_off:
