@@ -68,7 +68,7 @@ class Tempserver(object):
             loop.close()
 
     def now(self):
-        return utils.monotonic_time()
+        return time.monotonic()
 
     def set_sensors(self, sensors):
         if hasattr(self, 'sensors'):
