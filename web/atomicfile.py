@@ -23,8 +23,8 @@ class AtomicFile(object):
                     f.write(data)
                     return True
 
-        except IOError, e:
-            print>>sys.stderr, e
+        except IOError as e:
+            print(e, file=sys.stderr)
 
         return False
 
@@ -41,7 +41,7 @@ class AtomicFile(object):
 
                     return f.read()
 
-        except IOError, e:
-            print>>sys.stderr, e
+        except IOError as e:
+            print(e, file=sys.stderr)
 
         return None

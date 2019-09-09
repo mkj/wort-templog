@@ -1,6 +1,5 @@
-import gevent
+import gevent.event
 import fcntl
-import hashlib
 
 import binascii
 import os
@@ -38,7 +37,7 @@ class Settings(object):
         return '%s-%s' % (self.epoch, self.tag)
 
     def random(self):
-        return binascii.hexlify(os.urandom(self.RAND_SIZE))
+        return os.urandom(self.RAND_SIZE).hex()
 
     def update(self, contents, epoch = None):
         """ replaces settings contents and updates waiters if changed """

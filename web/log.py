@@ -58,8 +58,8 @@ def create_rrd(sensor_id):
 # stolen from viewmtn, stolen from monotone-viz
 def colour_from_string(str):
     def f(off):
-        return ord(hashval[off]) / 256.0
-    hashval = hashlib.sha1(str).digest()
+        return hashval[off] / 256.0
+    hashval = hashlib.sha1(str.encode()).digest()
     hue = f(5)
     li = f(1) * 0.15 + 0.55
     sat = f(2) * 0.5 + .5
@@ -138,7 +138,7 @@ def graph_png(start, length):
     graph_args.append('LINE0.5:limitfermheat#%(colour)s' % locals())
 
     # lines are done afterwards so they can be layered
-    sensor_lines.sort(key = lambda (legend, line): "Wort" in legend)
+    sensor_lines.sort(key = lambda legend_line: "Wort" in legend_line[0])
     graph_args += (line for (legend, line) in sensor_lines)
 
     #print>>sys.stderr, '\n'.join(graph_args)
@@ -197,7 +197,7 @@ def validate_value(m):
 def sensor_update(sensor_id, measurements):
     try:
         open(sensor_rrd_path(sensor_id))
-    except IOError, e:
+    except IOError as e:
         create_rrd(sensor_id)
 
     if measurements:
@@ -208,8 +208,8 @@ def sensor_update(sensor_id, measurements):
         for v in values:
             try:
                 rrdtool.update(rrdfile, v)
-            except rrdtool.error, e:
-                print>>sys.stderr, "Bad rrdtool update '%s': %s" % (v, str(e))
+            except rrdtool.error as e:
+                print("Bad rrdtool update '%s': %s" % (v, str(e)), file=sys.stderr)
                 traceback.print_exc(file=sys.stderr)
 
         # be paranoid
@@ -233,10 +233,6 @@ def tail_debug_log():
     size = f.tell()
     f.seek(max(0, size-30000))
     return '\n'.join(l.strip() for l in f.readlines()[-400:])
-
-def convert_ds18b20_12bit(reading):
-    value = struct.unpack('>h', binascii.unhexlify(reading))[0]
-    return value * 0.0625
 
 def time_rem(name, entries):
     val_ticks = int(entries[name])
@@ -269,7 +265,7 @@ def parse(params):
     measurements = {}
     for rs, t in readings:
         real_t = t + time_diff
-        for s, v in rs.iteritems():
+        for s, v in rs.items():
             measurements.setdefault(s, []).append((real_t, v))
 
     # one-off measurements here
@@ -280,7 +276,7 @@ def parse(params):
 
     write_current_params(current_params, current_epoch)
 
-    for s, vs in measurements.iteritems():
+    for s, vs in measurements.items():
         sensor_update(s, vs)
 
     timedelta = time.time() - start_time
@@ -316,7 +312,7 @@ def get_params():
     if not vals:
         return None
 
-    for k, v in _FIELD_DEFAULTS.iteritems():
+    for k, v in _FIELD_DEFAULTS.items():
         n = {'name': k, 'value': type(v)(vals[k])}
         if type(v) is bool:
             kind = 'yesno'
@@ -352,8 +348,8 @@ def update_params(p):
     for i in p:
         params[i['name']] = i['value']
 
-    if params.viewkeys() != _FIELD_DEFAULTS.viewkeys():
-        diff = params.viewkeys() ^ _FIELD_DEFAULTS.viewkeys()
+    if params.keys() != _FIELD_DEFAULTS.keys():
+        diff = params.keys() ^ _FIELD_DEFAULTS.keys()
         return "Key mismatch, difference %s" % str(diff)
 
     for k, v in params.items():

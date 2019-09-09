@@ -3,7 +3,6 @@ import os
 import time
 import fcntl
 import hmac
-import binascii
 import sys
 import hashlib
 
@@ -27,7 +26,7 @@ HASH=hashlib.sha1
 CLEAN_RE = re.compile('[^a-z0-9A-Z]')
 
 def cookie_hash(c):
-    return hashlib.sha256(c).hexdigest()
+    return hashlib.sha256(c.encode()).hexdigest()
 
 def init_cookie():
     """ Generates a new httponly auth cookie if required. 
@@ -35,7 +34,7 @@ def init_cookie():
     """
     c = bottle.request.get_cookie(AUTH_COOKIE)
     if not c:
-        c = binascii.hexlify(os.urandom(AUTH_COOKIE_LEN))
+        c = os.urandom(AUTH_COOKIE_LEN).hex()
         years = 60*60*24*365
         bottle.response.set_cookie(AUTH_COOKIE, c, secure=True, httponly=True, max_age=10*years)
     return cookie_hash(c)
@@ -49,11 +48,11 @@ def check_cookie(allowed_users):
 def setup_csrf():
     NONCE_SIZE=16
     global _csrf_fd, _csrf_key
-    _csrf_fd = os.fdopen(os.open('%s/csrf.dat' % config.DATA_PATH, os.O_RDWR | os.O_CREAT, 0600), 'r+')
+    _csrf_fd = os.fdopen(os.open('%s/csrf.dat' % config.DATA_PATH, os.O_RDWR | os.O_CREAT, 0o600), 'r+')
 
     try:
         fcntl.lockf(_csrf_fd, fcntl.LOCK_EX | fcntl.LOCK_NB)
-        _csrf_fd.write("%d-%s" % (os.getpid(), binascii.hexlify(os.urandom(NONCE_SIZE))))
+        _csrf_fd.write("%d-%s" % (os.getpid(), os.urandom(NONCE_SIZE).hex()))
         _csrf_fd.flush()
         _csrf_fd.seek(0)
     except IOError:
@@ -66,39 +65,33 @@ def setup_csrf():
 def get_csrf_blob():
     expiry = int(config.CSRF_TIMEOUT + time.time())
     content = '%s-%s' % (init_cookie(), expiry)
-    mac = hmac.new(_csrf_key, content).hexdigest()
+    mac = hmac.new(_csrf_key.encode(), content.encode()).hexdigest()
     return "%s-%s" % (content, mac)
 
 def check_csrf_blob(blob):
     toks = blob.split('-')
     if len(toks) != 3:
-        print>>sys.stderr, "wrong toks"
         return False
 
     user, expiry, mac = toks
     if user != init_cookie():
-        print>>sys.stderr, "wrong user"
         return False
 
     try:
         exp = int(expiry)
     except ValueError:
-        print>>sys.stderr, "failed exp"
         return False
 
     if exp < 1000000000:
         return False
 
     if exp < time.time():
-        print>>sys.stderr, "expired %d %d" % (exp, time.time())
         return False
 
     check_content = "%s-%s" % (user, expiry)
-    check_mac = hmac.new(_csrf_key, check_content).hexdigest()
+    check_mac = hmac.new(_csrf_key.encode(), check_content.encode()).hexdigest()
     if mac == check_mac:
-        print>>sys.stderr, "good hmac"
         return True
 
-    print>>sys.stderr, "fail"
     return False
 

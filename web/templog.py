@@ -6,11 +6,9 @@ import hmac
 import zlib
 from datetime import datetime, timedelta
 import time
-import urllib
+import urllib.request, urllib.parse, urllib.error
 import sys
-import os
 import traceback
-import fcntl
 import hashlib
 
 import bottle
@@ -35,16 +33,16 @@ secure.setup_csrf()
 
 @route('/update', method='post')
 def update():
-    js_enc = request.forms.data
+    js_enc = request.forms.data.strip().encode()
     mac = request.forms.hmac
 
-    h = hmac.new(config.HMAC_KEY, js_enc.strip(), hashlib.sha256).hexdigest()
+    h = hmac.new(config.HMAC_KEY.encode(), js_enc, hashlib.sha256).hexdigest()
     if h != mac:
         raise bottle.HTTPError(code = 403, output = "Bad key")
 
     js = zlib.decompress(binascii.a2b_base64(js_enc))
 
-    params = json.loads(js)
+    params = json.loads(js.decode())
 
     log.parse(params)
 
@@ -59,7 +57,7 @@ def make_graph(length, end):
     return log.graph_png(start_epoch, length_minutes * 60)
 
 def encode_data(data, mimetype):
-    return 'data:%s;base64,%s' % (mimetype, binascii.b2a_base64(data).rstrip())
+    return 'data:%s;base64,%s' % (mimetype, binascii.b2a_base64(data).decode().rstrip())
 
 @route('/graph.png')
 def graph():
@@ -108,7 +106,7 @@ def set():
         csrf_blob = secure.get_csrf_blob(),
         allowed = allowed,
         cookie_hash = cookie_hash,
-        email = urllib.quote(config.EMAIL))
+        email = urllib.parse.quote(config.EMAIL))
 
 def get_request_zoom():
     """ returns (length, end) tuple.
@@ -151,7 +149,7 @@ def top():
     request.query.replace('length', minutes)
     request.query.replace('end', endstr)
 
-    urlparams = urllib.urlencode(request.query)
+    urlparams = urllib.parse.urlencode(request.query)
     graphdata = encode_data(make_graph(minutes, endstr), 'image/png')
     return bottle.template('top', urlparams=urlparams,
                     end = endstr,
